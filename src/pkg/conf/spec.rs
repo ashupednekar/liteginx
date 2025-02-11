@@ -11,10 +11,17 @@ pub struct HttpRoute{
 }
 
 #[derive(Deserialize, Clone)]
+pub struct VirtualHost{
+    pub host: String,
+    pub port: i32
+}
+
+#[derive(Deserialize, Clone)]
 pub struct Http{
     #[serde(default = "default_http_kind")]
     pub kind: String,
     pub path: String,
+    pub listen: VirtualHost,
     pub route: HttpRoute
 }
 
@@ -39,6 +46,7 @@ pub struct Tls{
 #[derive(Deserialize, Clone)]
 pub struct Config{
     pub name: String,
+    #[serde(deserialize_with = "deserialize_spec")]
     pub spec: Spec,
     pub tls: Tls
 }
@@ -66,4 +74,97 @@ where
     } else {
         Err(D::Error::custom("Missing `kind` field"))
     }
+}
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    use crate::Result;
+
+    #[test]
+    fn test_normal_http_deserialize() -> Result<()>{
+        let conf_yaml = "
+name: one-ingress
+spec:
+  kind: http
+  path: /one
+  listen:
+    host: localhost
+    port: 80
+  route:
+    host: localhost
+    port: 3000
+tls: 
+  enabled: false";
+        let config: Config = serde_yaml::from_str(conf_yaml)?;
+        assert_eq!(config.name, "one-ingress");
+        if let Spec::Http(spec) = config.spec { 
+            assert_eq!(spec.kind, "http");
+            assert_eq!(spec.path, "/one");
+            assert_eq!(spec.listen.host, "localhost");
+            assert_eq!(spec.listen.port, 80);
+            assert_eq!(spec.route.host, "localhost");
+            assert_eq!(spec.route.port, 3000);
+            assert_eq!(spec.route.rewrite, None);
+        }else{
+            assert!(true);
+        }
+        assert_eq!(config.tls.enabled, false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_normal_http_deserialize_with_rewrite() -> Result<()>{
+        let conf_yaml = "
+name: one-ingress
+spec:
+  kind: http
+  path: /one
+  listen:
+    host: localhost
+    port: 80
+  route:
+    host: localhost
+    port: 3000
+    rewrite: /
+tls: 
+  enabled: false";
+        let config: Config = serde_yaml::from_str(conf_yaml)?;
+        assert_eq!(config.name, "one-ingress");
+        if let Spec::Http(spec) = config.spec { 
+            assert_eq!(spec.kind, "http");
+            assert_eq!(spec.path, "/one");
+            assert_eq!(spec.listen.host, "localhost");
+            assert_eq!(spec.listen.port, 80);
+            assert_eq!(spec.route.host, "localhost");
+            assert_eq!(spec.route.port, 3000);
+            assert_eq!(spec.route.rewrite, Some("/".to_string()));
+        }else{
+            assert!(true);
+        }
+        assert_eq!(config.tls.enabled, false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_tcp_proxy() -> Result<()>{
+        let conf_yaml = "
+name: redis-ingress
+spec:
+  kind: http
+  port: 6379
+tls:
+  enabled: false";
+        let config: Config = serde_yaml::from_str(conf_yaml)?;
+        assert_eq!(config.name, "one-ingress");
+        if let Spec::Tcp(spec) = config.spec { 
+  
+        }else{
+            assert!(true);
+        }
+        assert_eq!(config.tls.enabled, false);
+        Ok(())
+    }
+
 }
