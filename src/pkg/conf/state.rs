@@ -21,13 +21,12 @@ impl State {
     fn load() -> Result<State> {
         let config_path =
             env::var("LITEGINX_CONF_DIR").unwrap_or(format!("{}/.config/liteginx", env!("HOME")));
-
         Ok(fs::read_dir(&config_path)?
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "yaml"))
             .filter_map(|yaml_path| fs::read_to_string(yaml_path.path()).ok())
             .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
-            .fold(State::new(), |mut state, config| {
+            .fold(Self::new(), |mut state, config| {
                 match config.spec {
                     Spec::Tcp(spec) => {
                         state.tcp_routes.insert(spec.port, spec.port);
