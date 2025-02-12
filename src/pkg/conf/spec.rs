@@ -152,14 +152,14 @@ tls:
         let conf_yaml = "
 name: redis-ingress
 spec:
-  kind: http
+  kind: tcp
   port: 6379
 tls:
   enabled: false";
         let config: Config = serde_yaml::from_str(conf_yaml)?;
-        assert_eq!(config.name, "one-ingress");
+        assert_eq!(config.name, "redis-ingress");
         if let Spec::Tcp(spec) = config.spec { 
-  
+            assert_eq!(spec.port, 6379); 
         }else{
             assert!(true);
         }
