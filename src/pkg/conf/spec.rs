@@ -1,6 +1,6 @@
 use serde::{Deserialize, Deserializer};
 use serde::de::Error;
-use serde_json::Value;
+use serde_yaml::Value;
 
 
 #[derive(Deserialize, Clone)]
@@ -67,8 +67,8 @@ where
     let v: Value = Deserialize::deserialize(deserializer)?;
     if let Some(kind) = v.get("kind").and_then(|k| k.as_str()) {
         match kind {
-            "http" => Ok(Spec::Http(serde_json::from_value(v).map_err(D::Error::custom)?)),
-            "tcp" => Ok(Spec::Tcp(serde_json::from_value(v).map_err(D::Error::custom)?)),
+            "http" => Ok(Spec::Http(serde_yaml::from_value(v).map_err(D::Error::custom)?)),
+            "tcp" => Ok(Spec::Tcp(serde_yaml::from_value(v).map_err(D::Error::custom)?)),
             _ => Err(D::Error::custom("Unknown kind")),
         }
     } else {
