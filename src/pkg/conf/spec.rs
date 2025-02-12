@@ -1,56 +1,54 @@
-use serde::{Deserialize, Deserializer};
 use serde::de::Error;
+use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 
-
-#[derive(Deserialize, Clone)]
-pub struct HttpRoute{
+#[derive(Deserialize, Debug, Clone)]
+pub struct HttpRoute {
     pub host: String,
     pub port: i32,
-    pub rewrite: Option<String>
+    pub rewrite: Option<String>,
 }
 
-#[derive(Deserialize, Clone)]
-pub struct VirtualHost{
+#[derive(Deserialize, Debug, Clone)]
+pub struct VirtualHost {
     pub host: String,
-    pub port: i32
+    pub port: i32,
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Http{
+#[derive(Deserialize, Debug, Clone)]
+pub struct Http {
     #[serde(default = "default_http_kind")]
     pub kind: String,
     pub path: String,
     pub listen: VirtualHost,
-    pub route: HttpRoute
+    pub route: HttpRoute,
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Tcp{
+#[derive(Deserialize, Debug, Clone)]
+pub struct Tcp {
     #[serde(default = "default_tcp_kind")]
     pub kind: String,
-    pub port: i32
+    pub port: i32,
 }
 
-#[derive(Deserialize, Clone)]
-pub enum Spec{
+#[derive(Deserialize, Debug, Clone)]
+pub enum Spec {
     Http(Http),
-    Tcp(Tcp)
+    Tcp(Tcp),
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Tls{
-    pub enabled: bool
+#[derive(Deserialize, Debug, Clone)]
+pub struct Tls {
+    pub enabled: bool,
 }
 
-#[derive(Deserialize, Clone)]
-pub struct Config{
+#[derive(Deserialize, Debug, Clone)]
+pub struct Config {
     pub name: String,
     #[serde(deserialize_with = "deserialize_spec")]
     pub spec: Spec,
-    pub tls: Tls
+    pub tls: Tls,
 }
-
 
 fn default_http_kind() -> String {
     "http".to_string()
@@ -67,8 +65,12 @@ where
     let v: Value = Deserialize::deserialize(deserializer)?;
     if let Some(kind) = v.get("kind").and_then(|k| k.as_str()) {
         match kind {
-            "http" => Ok(Spec::Http(serde_yaml::from_value(v).map_err(D::Error::custom)?)),
-            "tcp" => Ok(Spec::Tcp(serde_yaml::from_value(v).map_err(D::Error::custom)?)),
+            "http" => Ok(Spec::Http(
+                serde_yaml::from_value(v).map_err(D::Error::custom)?,
+            )),
+            "tcp" => Ok(Spec::Tcp(
+                serde_yaml::from_value(v).map_err(D::Error::custom)?,
+            )),
             _ => Err(D::Error::custom("Unknown kind")),
         }
     } else {
@@ -76,14 +78,13 @@ where
     }
 }
 
-
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
-    use crate::Result;
+    use crate::prelude::Result;
 
     #[test]
-    fn test_normal_http_deserialize() -> Result<()>{
+    fn test_normal_http_deserialize() -> Result<()> {
         let conf_yaml = "
 name: one-ingress
 spec:
@@ -99,7 +100,7 @@ tls:
   enabled: false";
         let config: Config = serde_yaml::from_str(conf_yaml)?;
         assert_eq!(config.name, "one-ingress");
-        if let Spec::Http(spec) = config.spec { 
+        if let Spec::Http(spec) = config.spec {
             assert_eq!(spec.kind, "http");
             assert_eq!(spec.path, "/one");
             assert_eq!(spec.listen.host, "localhost");
@@ -107,7 +108,7 @@ tls:
             assert_eq!(spec.route.host, "localhost");
             assert_eq!(spec.route.port, 3000);
             assert_eq!(spec.route.rewrite, None);
-        }else{
+        } else {
             assert!(true);
         }
         assert_eq!(config.tls.enabled, false);
@@ -115,7 +116,7 @@ tls:
     }
 
     #[test]
-    fn test_normal_http_deserialize_with_rewrite() -> Result<()>{
+    fn test_normal_http_deserialize_with_rewrite() -> Result<()> {
         let conf_yaml = "
 name: one-ingress
 spec:
@@ -132,7 +133,7 @@ tls:
   enabled: false";
         let config: Config = serde_yaml::from_str(conf_yaml)?;
         assert_eq!(config.name, "one-ingress");
-        if let Spec::Http(spec) = config.spec { 
+        if let Spec::Http(spec) = config.spec {
             assert_eq!(spec.kind, "http");
             assert_eq!(spec.path, "/one");
             assert_eq!(spec.listen.host, "localhost");
@@ -140,7 +141,7 @@ tls:
             assert_eq!(spec.route.host, "localhost");
             assert_eq!(spec.route.port, 3000);
             assert_eq!(spec.route.rewrite, Some("/".to_string()));
-        }else{
+        } else {
             assert!(true);
         }
         assert_eq!(config.tls.enabled, false);
@@ -148,7 +149,7 @@ tls:
     }
 
     #[test]
-    fn test_tcp_proxy() -> Result<()>{
+    fn test_tcp_proxy() -> Result<()> {
         let conf_yaml = "
 name: redis-ingress
 spec:
@@ -158,13 +159,12 @@ tls:
   enabled: false";
         let config: Config = serde_yaml::from_str(conf_yaml)?;
         assert_eq!(config.name, "redis-ingress");
-        if let Spec::Tcp(spec) = config.spec { 
-            assert_eq!(spec.port, 6379); 
-        }else{
+        if let Spec::Tcp(spec) = config.spec {
+            assert_eq!(spec.port, 6379);
+        } else {
             assert!(true);
         }
         assert_eq!(config.tls.enabled, false);
         Ok(())
     }
-
 }

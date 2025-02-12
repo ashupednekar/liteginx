@@ -1,7 +1,7 @@
 pub mod cmd;
 pub mod pkg;
-
-pub type Result<T> = core::result::Result<T, Box<dyn std::error::Error>>;
+pub mod prelude;
 
 fn main() {
+    tracing_subscriber::fmt::init();
 }
