@@ -52,6 +52,9 @@ mod tests {
     #[test]
     #[traced_test]
     fn test_load_state() {
+        unsafe{
+            std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx")
+        }
         let state = State::load();
         tracing::debug!("state: {:?}", &state);
 
