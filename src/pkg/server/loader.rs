@@ -21,7 +21,6 @@ impl Server {
         let mut state = Server{
             tcp_routes: HashMap::new(),
             http_routes: HashMap::new(),
-            port: settings.listen_port 
         }
 ;
         for config in configs{
@@ -29,7 +28,7 @@ impl Server {
                 Spec::Http(spec) => {
                     state
                         .http_routes
-                        .entry(spec.listen.port)
+                        .entry(spec.listen_port)
                         .or_insert_with(Router::new)
                         .insert(spec.path, spec.routes)?;
                 },
@@ -56,7 +55,7 @@ impl Display for Server {
         for (port, routes) in &self.tcp_routes {
             writeln!(f, "Listen at Port: {}", port)?;
             for route in routes {
-                writeln!(f, "   route to -> {}:{}", route.host, route.port)?;
+                writeln!(f, "   route to -> {}:{}", route.target_host, route.target_port)?;
             }
         }
 
