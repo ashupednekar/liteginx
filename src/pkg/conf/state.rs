@@ -2,12 +2,12 @@ use crate::prelude::Result;
 use matchit::Router;
 use std::{collections::HashMap, env, fs};
 
-use super::spec::{Config, Http, HttpRoute, Spec, Tcp};
+use super::spec::{Config, HttpRoute, Spec, TcpRoute};
 
 #[derive(Debug)]
 struct State {
-    tcp_routes: HashMap<i32, i32>,
-    http_routes: Router<HttpRoute>,
+    tcp_routes: HashMap<i32, Vec<TcpRoute>>,
+    http_routes: Router<Vec<HttpRoute>>,
 }
 
 impl State {
@@ -29,10 +29,13 @@ impl State {
             .fold(Self::new(), |mut state, config| {
                 match config.spec {
                     Spec::Tcp(spec) => {
-                        state.tcp_routes.insert(spec.port, spec.port);
+                        state.tcp_routes.insert(
+                            spec.listen_port,
+                            spec.routes
+                        );
                     }
                     Spec::Http(spec) => {
-                        state.http_routes.insert(spec.path, spec.route).ok();
+                        state.http_routes.insert(spec.path, spec.routes).ok();
                     }
                 }
                 state

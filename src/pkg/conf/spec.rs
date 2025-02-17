@@ -1,6 +1,14 @@
+use std::i32;
+
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct VirtualHost {
+    pub host: String,
+    pub port: i32,
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct HttpRoute {
@@ -10,25 +18,27 @@ pub struct HttpRoute {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct VirtualHost {
-    pub host: String,
-    pub port: i32,
-}
-
-#[derive(Deserialize, Debug, Clone)]
 pub struct Http {
     #[serde(default = "default_http_kind")]
     pub kind: String,
     pub path: String,
     pub listen: VirtualHost,
-    pub route: HttpRoute,
+    pub routes: Vec<HttpRoute>,
+}
+
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct TcpRoute{
+    host: String,
+    port: i32
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tcp {
     #[serde(default = "default_tcp_kind")]
     pub kind: String,
-    pub port: i32,
+    pub listen_port: i32,
+    pub routes: Vec<TcpRoute>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -93,8 +103,8 @@ spec:
   listen:
     host: localhost
     port: 80
-  route:
-    host: localhost
+  routes:
+  - host: localhost
     port: 3000
 tls: 
   enabled: false";
@@ -105,9 +115,10 @@ tls:
             assert_eq!(spec.path, "/one");
             assert_eq!(spec.listen.host, "localhost");
             assert_eq!(spec.listen.port, 80);
-            assert_eq!(spec.route.host, "localhost");
-            assert_eq!(spec.route.port, 3000);
-            assert_eq!(spec.route.rewrite, None);
+            let route = spec.routes[0].clone();
+            assert_eq!(route.host, "localhost");
+            assert_eq!(route.port, 3000);
+            assert_eq!(route.rewrite, None);
         } else {
             assert!(true);
         }
@@ -125,8 +136,8 @@ spec:
   listen:
     host: localhost
     port: 80
-  route:
-    host: localhost
+  routes:
+  - host: localhost
     port: 3000
     rewrite: /
 tls: 
@@ -138,9 +149,10 @@ tls:
             assert_eq!(spec.path, "/one");
             assert_eq!(spec.listen.host, "localhost");
             assert_eq!(spec.listen.port, 80);
-            assert_eq!(spec.route.host, "localhost");
-            assert_eq!(spec.route.port, 3000);
-            assert_eq!(spec.route.rewrite, Some("/".to_string()));
+            let route = spec.routes[0].clone();
+            assert_eq!(route.host, "localhost");
+            assert_eq!(route.port, 3000);
+            assert_eq!(route.rewrite, Some("/".to_string()));
         } else {
             assert!(true);
         }
@@ -154,13 +166,16 @@ tls:
 name: redis-ingress
 spec:
   kind: tcp
-  port: 6379
+  listen_port: 6379
+  routes: 
+   - host: localhost
+     port: 6379
 tls:
   enabled: false";
         let config: Config = serde_yaml::from_str(conf_yaml)?;
         assert_eq!(config.name, "redis-ingress");
         if let Spec::Tcp(spec) = config.spec {
-            assert_eq!(spec.port, 6379);
+            assert_eq!(spec.routes[0].port, 6379);
         } else {
             assert!(true);
         }
