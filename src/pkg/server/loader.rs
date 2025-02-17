@@ -1,6 +1,6 @@
-use crate::prelude::Result;
+use crate::{conf::settings, prelude::Result};
 use matchit::Router;
-use std::{env, fmt::{self, Display}, fs};
+use std::{collections::HashMap, env, fmt::{self, Display}, fs};
 
 use crate::pkg::conf::spec::{Config, Spec};
 
@@ -18,7 +18,12 @@ impl Server {
             .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
             .collect();
 
-        let mut state = Server::new();
+        let mut state = Server{
+            tcp_routes: HashMap::new(),
+            http_routes: HashMap::new(),
+            port: settings.listen_port 
+        }
+;
         for config in configs{
             match config.spec{
                 Spec::Http(spec) => {

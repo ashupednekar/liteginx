@@ -14,11 +14,9 @@ struct Server {
 }
 
 impl Server{
-    fn new() -> Server {
-        Self {
-            tcp_routes: HashMap::new(),
-            http_routes: HashMap::new(),
-            port: settings.listen_port 
-        }
+  
+    async fn start(&self){
+        
     }
+
 }
