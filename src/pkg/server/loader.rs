@@ -44,10 +44,10 @@ impl Server {
 impl Display for Server {
 
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "State Configuration:")?;
+        writeln!(f, "\nState Configuration:")?;
         writeln!(f, "===================")?;
 
-        writeln!(f, "TCP Routes:")?;
+        writeln!(f, "TCP Routes:\n")?;
         for (port, routes) in &self.tcp_routes {
             writeln!(f, "Listen at Port: {}", port)?;
             for route in routes {
@@ -55,7 +55,7 @@ impl Display for Server {
             }
         }
 
-        writeln!(f, "Http Routes:")?;
+        writeln!(f, "\nHttp Routes:\n")?;
         for (port, router) in &self.http_routes {
             writeln!(f, "Listen at Port: {}\n   route as: {:?}", port, router)?;
         }
