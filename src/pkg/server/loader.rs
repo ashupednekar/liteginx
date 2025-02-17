@@ -8,7 +8,7 @@ use super::Server;
 
 
 impl Server {
-    fn load() -> Result<Server> {
+    fn new() -> Result<Server> {
         let config_path =
             env::var("LITEGINX_CONF_DIR").unwrap_or(format!("{}/.config/liteginx", env!("HOME")));
         let configs: Vec<Config> = fs::read_dir(&config_path)?
@@ -83,7 +83,7 @@ mod tests {
         unsafe{
             std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx")
         }
-        let state = Server::load()?;
+        let state = Server::new()?;
         tracing::debug!("state: {}", &state);
         Ok(())
     }
