@@ -1,25 +1,14 @@
 use crate::prelude::Result;
 use matchit::Router;
-use serde_json::ser::Formatter;
-use std::{collections::HashMap, env, fmt::{self, Display}, fs};
+use std::{env, fmt::{self, Display}, fs};
 
-use super::spec::{Config, HttpRoute, Spec, TcpRoute};
+use crate::pkg::conf::spec::{Config, Spec};
 
-#[derive(Debug)]
-struct State {
-    tcp_routes: HashMap<i32, Vec<TcpRoute>>,
-    http_routes: HashMap<i32, Router<Vec<HttpRoute>>>,
-}
+use super::Server;
 
-impl State {
-    fn new() -> State {
-        State {
-            tcp_routes: HashMap::new(),
-            http_routes: HashMap::new(),
-        }
-    }
 
-    fn load() -> Result<State> {
+impl Server {
+    fn load() -> Result<Server> {
         let config_path =
             env::var("LITEGINX_CONF_DIR").unwrap_or(format!("{}/.config/liteginx", env!("HOME")));
         let configs: Vec<Config> = fs::read_dir(&config_path)?
@@ -29,7 +18,7 @@ impl State {
             .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
             .collect();
 
-        let mut state = State::new();
+        let mut state = Server::new();
         for config in configs{
             match config.spec{
                 Spec::Http(spec) => {
@@ -52,7 +41,7 @@ impl State {
 }
 
 
-impl Display for State {
+impl Display for Server {
 
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "State Configuration:")?;
@@ -89,7 +78,7 @@ mod tests {
         unsafe{
             std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx")
         }
-        let state = State::load()?;
+        let state = Server::load()?;
         tracing::debug!("state: {}", &state);
         Ok(())
     }
