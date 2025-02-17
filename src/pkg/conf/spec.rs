@@ -29,8 +29,8 @@ pub struct Http {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TcpRoute{
-    host: String,
-    port: i32
+    pub host: String,
+    pub port: i32
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -88,27 +88,18 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::prelude::Result;
 
+#[cfg(test)]
+mod tests{
+
+    use std::fs;
+    
+    use crate::{pkg::conf::spec::*, prelude::Result};
+    
     #[test]
     fn test_normal_http_deserialize() -> Result<()> {
-        let conf_yaml = "
-name: one-ingress
-spec:
-  kind: http
-  path: /one
-  listen:
-    host: localhost
-    port: 80
-  routes:
-  - host: localhost
-    port: 3000
-tls: 
-  enabled: false";
-        let config: Config = serde_yaml::from_str(conf_yaml)?;
+        let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/one.yaml")?; 
+        let config: Config = serde_yaml::from_str(&conf_yaml)?;
         assert_eq!(config.name, "one-ingress");
         if let Spec::Http(spec) = config.spec {
             assert_eq!(spec.kind, "http");
@@ -125,33 +116,20 @@ tls:
         assert_eq!(config.tls.enabled, false);
         Ok(())
     }
-
+    
     #[test]
     fn test_normal_http_deserialize_with_rewrite() -> Result<()> {
-        let conf_yaml = "
-name: one-ingress
-spec:
-  kind: http
-  path: /one
-  listen:
-    host: localhost
-    port: 80
-  routes:
-  - host: localhost
-    port: 3000
-    rewrite: /
-tls: 
-  enabled: false";
-        let config: Config = serde_yaml::from_str(conf_yaml)?;
-        assert_eq!(config.name, "one-ingress");
+        let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/two.yaml")?;
+        let config: Config = serde_yaml::from_str(&conf_yaml)?;
+        assert_eq!(config.name, "two-ingress");
         if let Spec::Http(spec) = config.spec {
             assert_eq!(spec.kind, "http");
-            assert_eq!(spec.path, "/one");
+            assert_eq!(spec.path, "/two");
             assert_eq!(spec.listen.host, "localhost");
             assert_eq!(spec.listen.port, 80);
             let route = spec.routes[0].clone();
             assert_eq!(route.host, "localhost");
-            assert_eq!(route.port, 3000);
+            assert_eq!(route.port, 3001);
             assert_eq!(route.rewrite, Some("/".to_string()));
         } else {
             assert!(true);
@@ -159,20 +137,11 @@ tls:
         assert_eq!(config.tls.enabled, false);
         Ok(())
     }
-
+    
     #[test]
     fn test_tcp_proxy() -> Result<()> {
-        let conf_yaml = "
-name: redis-ingress
-spec:
-  kind: tcp
-  listen_port: 6379
-  routes: 
-   - host: localhost
-     port: 6379
-tls:
-  enabled: false";
-        let config: Config = serde_yaml::from_str(conf_yaml)?;
+        let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/redis.yaml")?;
+        let config: Config = serde_yaml::from_str(&conf_yaml)?;
         assert_eq!(config.name, "redis-ingress");
         if let Spec::Tcp(spec) = config.spec {
             assert_eq!(spec.routes[0].port, 6379);

@@ -54,5 +54,6 @@ mod tests {
     fn test_load_state() {
         let state = State::load();
         tracing::debug!("state: {:?}", &state);
+
     }
 }
