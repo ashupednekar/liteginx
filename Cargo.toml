@@ -17,3 +17,6 @@ opentelemetry_sdk = { version = "0.26.0", features = ["rt-tokio"] }
 tracing-test = "0.2.5"
 config = "0.15.6"
 lazy_static = "1.5.0"
+tokio = { version = "1.43.0", features = ["full"] }
+async-trait = "0.1.86"
+futures = "0.3.31"
