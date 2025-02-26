@@ -2,7 +2,6 @@ use config::{Config, ConfigError, Environment};
 use lazy_static::lazy_static;
 use serde::Deserialize;
 
-
 #[derive(Deserialize)]
 pub struct Settings {
     pub listen_port: i32,

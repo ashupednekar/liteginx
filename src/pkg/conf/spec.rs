@@ -21,11 +21,10 @@ pub struct Http {
     pub routes: Vec<HttpRoute>,
 }
 
-
 #[derive(Deserialize, Debug, Clone)]
-pub struct TcpRoute{
+pub struct TcpRoute {
     pub target_host: String,
-    pub target_port: i32
+    pub target_port: i32,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -83,17 +82,16 @@ where
     }
 }
 
-
 #[cfg(test)]
-mod tests{
+mod tests {
 
     use std::fs;
-    
+
     use crate::{pkg::conf::spec::*, prelude::Result};
-    
+
     #[test]
     fn test_normal_http_deserialize() -> Result<()> {
-        let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/one.yaml")?; 
+        let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/one.yaml")?;
         let config: Config = serde_yaml::from_str(&conf_yaml)?;
         assert_eq!(config.name, "one-ingress");
         if let Spec::Http(spec) = config.spec {
@@ -110,7 +108,7 @@ mod tests{
         assert_eq!(config.tls.enabled, false);
         Ok(())
     }
-    
+
     #[test]
     fn test_normal_http_deserialize_with_rewrite() -> Result<()> {
         let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/two.yaml")?;
@@ -130,7 +128,7 @@ mod tests{
         assert_eq!(config.tls.enabled, false);
         Ok(())
     }
-    
+
     #[test]
     fn test_tcp_proxy() -> Result<()> {
         let conf_yaml = fs::read_to_string("src/pkg/conf/fixtures/liteginx/redis.yaml")?;

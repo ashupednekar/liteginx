@@ -1,11 +1,15 @@
 use crate::{conf::settings, prelude::Result};
 use matchit::Router;
-use std::{collections::HashMap, env, fmt::{self, Display}, fs};
+use std::{
+    collections::HashMap,
+    env,
+    fmt::{self, Display},
+    fs,
+};
 
 use crate::pkg::conf::spec::{Config, Spec};
 
 use super::Server;
-
 
 impl Server {
     fn new() -> Result<Server> {
@@ -18,20 +22,19 @@ impl Server {
             .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
             .collect();
 
-        let mut state = Server{
+        let mut state = Server {
             tcp_routes: HashMap::new(),
             http_routes: HashMap::new(),
-        }
-;
-        for config in configs{
-            match config.spec{
+        };
+        for config in configs {
+            match config.spec {
                 Spec::Http(spec) => {
                     state
                         .http_routes
                         .entry(spec.listen_port)
                         .or_insert_with(Router::new)
                         .insert(spec.path, spec.routes)?;
-                },
+                }
                 Spec::Tcp(spec) => {
                     state
                         .tcp_routes
@@ -44,9 +47,7 @@ impl Server {
     }
 }
 
-
 impl Display for Server {
-
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "\nState Configuration:")?;
         writeln!(f, "===================")?;
@@ -55,7 +56,11 @@ impl Display for Server {
         for (port, routes) in &self.tcp_routes {
             writeln!(f, "Listen at Port: {}", port)?;
             for route in routes {
-                writeln!(f, "   route to -> {}:{}", route.target_host, route.target_port)?;
+                writeln!(
+                    f,
+                    "   route to -> {}:{}",
+                    route.target_host, route.target_port
+                )?;
             }
         }
 
@@ -63,12 +68,9 @@ impl Display for Server {
         for (port, router) in &self.http_routes {
             writeln!(f, "Listen at Port: {}\n   route as: {:?}", port, router)?;
         }
-        Ok(())       
+        Ok(())
     }
-
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -78,10 +80,8 @@ mod tests {
 
     #[test]
     #[traced_test]
-    fn test_load_state() -> Result<()>{
-        unsafe{
-            std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx")
-        }
+    fn test_load_state() -> Result<()> {
+        unsafe { std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx") }
         let state = Server::new()?;
         tracing::debug!("state: {}", &state);
         Ok(())

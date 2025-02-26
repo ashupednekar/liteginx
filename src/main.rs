@@ -1,6 +1,6 @@
 pub mod cmd;
-pub mod pkg;
 pub mod conf;
+pub mod pkg;
 pub mod prelude;
 
 fn main() {

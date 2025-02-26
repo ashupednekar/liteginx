@@ -20,3 +20,4 @@ lazy_static = "1.5.0"
 tokio = { version = "1.43.0", features = ["full"] }
 async-trait = "0.1.86"
 futures = "0.3.31"
+clap = { version = "4.5.31", features = ["derive"] }
