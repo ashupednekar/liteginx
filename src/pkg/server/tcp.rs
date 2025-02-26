@@ -25,7 +25,7 @@ pub trait TcpServer{
                             break;
                         }
                         let body = buf[..n].to_vec();
-                        self.forward(body).await;
+                        //self.forward(body).await;
                         //send to targets, load-balanced, send response back
                         socket.write_all("OK".as_bytes()).await?;
                     }
