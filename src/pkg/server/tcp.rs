@@ -5,7 +5,7 @@ use std::{
 
 use ::futures::future::join_all;
 use rand::seq::SliceRandom;
-use tokio::task::JoinHandle;
+use tokio::{task::JoinHandle, sync::broadcast::{Sender, Receiver}};
 
 use crate::{
     pkg::{conf::spec::TcpRoute, server::TcpRoutes},
@@ -31,9 +31,10 @@ impl SpawnServers for TcpRoutes {
 
 #[async_trait]
 impl ForwardRoutes for Vec<TcpRoute> {
-    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>> {
+    async fn forward(&self, body: Sender<Vec<u8>>) -> Result<()>{
         tracing::debug!("routing tcp connection at: {:?}", &self);
-        if let Some(route) = self.choose(&mut rand::thread_rng()) {
+        return Ok(());
+        /*if let Some(route) = self.choose(&mut rand::thread_rng()) {
             let mut stream =
                 TcpStream::connect(&format!("{}:{}", &route.target_host, &route.target_port))?;
             stream.write(&body)?;
@@ -42,6 +43,6 @@ impl ForwardRoutes for Vec<TcpRoute> {
             Ok(buf.to_vec())
         } else {
             Err("er".into())
-        }
+        }*/
     }
 }

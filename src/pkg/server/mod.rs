@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::mpsc::SendError};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
-    sync::broadcast::channel,
+    sync::broadcast::{channel, Sender, Receiver},
     task::JoinHandle,
 };
 
@@ -39,7 +39,7 @@ impl Server {
 
 #[async_trait]
 pub trait ForwardRoutes {
-    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>>;
+    async fn forward(&self, tx: Sender<Vec<u8>>) -> Result<()>;
 }
 
 #[async_trait]
@@ -62,6 +62,7 @@ pub trait SpawnServers {
                         break;
                     }
                 };
+                let (tx, rx) = channel::<Vec<u8>>(1);
                 tokio::spawn(async move {
                     let mut buf = vec![0; 1024];
                     loop {
@@ -70,10 +71,10 @@ pub trait SpawnServers {
                             break;
                         }
                         let body = buf[..n].to_vec();
-                        let res = route.forward(body).await.map_err(|e| {
+                        /*let res = route.forward(body).await.map_err(|e| {
                             std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
                         })?;
-                        socket.write_all(&res).await?;
+                        socket.write_all(&res).await?;*/
                     }
                     Ok::<(), std::io::Error>(())
                 });

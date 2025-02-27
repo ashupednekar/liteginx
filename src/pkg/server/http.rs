@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 use matchit::Router;
-use tokio::task::JoinHandle;
+use tokio::{sync::broadcast::Sender, task::JoinHandle};
 
 use crate::{
     pkg::conf::spec::HttpRoute,
@@ -26,7 +26,7 @@ impl SpawnServers for HttpRoutes {
 
 #[async_trait]
 impl ForwardRoutes for Router<Vec<HttpRoute>> {
-    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>> {
-        Ok("".as_bytes().to_vec())
+    async fn forward(&self, tx: Sender<Vec<u8>>) -> Result<()> {
+        Ok(())
     }
 }
