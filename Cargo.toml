@@ -22,3 +22,4 @@ async-trait = "0.1.86"
 futures = "0.3.31"
 clap = { version = "4.5.31", features = ["derive"] }
 tokio-test = "0.4.4"
+rand = "0.7.2"

@@ -1,7 +1,12 @@
 use async_trait::async_trait;
 use matchit::Router;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpListener, task::JoinHandle};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::SendError};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpListener,
+    sync::broadcast::channel,
+    task::JoinHandle,
+};
 
 use crate::{
     pkg::conf::spec::{HttpRoute, TcpRoute},
@@ -32,19 +37,18 @@ impl Server {
     }
 }
 
-
 #[async_trait]
-pub trait ForwardRoutes{
-    async fn forward(&self, body: Vec<u8>) -> Result<()>;
+pub trait ForwardRoutes {
+    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>>;
 }
-
 
 #[async_trait]
 pub trait SpawnServers {
     async fn listen(&self) -> Result<()>;
 
     async fn spawn_tcp_proxy<T>(&self, port: i32, route: T) -> JoinHandle<IoResult<()>>
-    where T: ForwardRoutes + Send + Sync + Clone + 'static 
+    where
+        T: ForwardRoutes + Send + Sync + Clone + 'static,
     {
         let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
             .await
@@ -66,11 +70,10 @@ pub trait SpawnServers {
                             break;
                         }
                         let body = buf[..n].to_vec();
-                        if let Err(e) = route.forward(body).await{
-                            tracing::error!(e);
-                        }
-                        //send to targets, load-balanced, send response back
-                        socket.write_all("OK".as_bytes()).await?;
+                        let res = route.forward(body).await.map_err(|e| {
+                            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+                        })?;
+                        socket.write_all(&res).await?;
                     }
                     Ok::<(), std::io::Error>(())
                 });
@@ -81,16 +84,15 @@ pub trait SpawnServers {
 }
 
 #[cfg(test)]
-mod tests{
-    use tracing_test::traced_test;
+mod tests {
     use super::*;
-    
+    use tracing_test::traced_test;
+
     #[tokio::test]
     #[traced_test]
-    async fn test_server() -> Result<()>{
+    async fn test_server() -> Result<()> {
         let server = Server::new()?;
         server.start().await;
         Ok(())
     }
-
 }

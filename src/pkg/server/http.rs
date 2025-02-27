@@ -3,9 +3,12 @@ use futures::future::join_all;
 use matchit::Router;
 use tokio::task::JoinHandle;
 
-use crate::{pkg::conf::spec::HttpRoute, prelude::{IoResult, Result}};
+use crate::{
+    pkg::conf::spec::HttpRoute,
+    prelude::{IoResult, Result},
+};
 
-use super::{ForwardRoutes, SpawnServers, HttpRoutes};
+use super::{ForwardRoutes, HttpRoutes, SpawnServers};
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {
@@ -21,13 +24,9 @@ impl SpawnServers for HttpRoutes {
     }
 }
 
-
 #[async_trait]
-impl ForwardRoutes for Router<Vec<HttpRoute>>{
-    async fn forward(&self, body: Vec<u8>) -> Result<()>{
-        Ok(())
+impl ForwardRoutes for Router<Vec<HttpRoute>> {
+    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>> {
+        Ok("".as_bytes().to_vec())
     }
 }
-
-
-

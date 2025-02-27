@@ -1,6 +1,10 @@
-use std::{io::Write, net::TcpStream};
+use std::{
+    io::{Read, Write},
+    net::TcpStream,
+};
 
 use ::futures::future::join_all;
+use rand::seq::SliceRandom;
 use tokio::task::JoinHandle;
 
 use crate::{
@@ -10,8 +14,6 @@ use crate::{
 use async_trait::async_trait;
 
 use super::{ForwardRoutes, SpawnServers};
-
-
 
 #[async_trait]
 impl SpawnServers for TcpRoutes {
@@ -27,20 +29,19 @@ impl SpawnServers for TcpRoutes {
     }
 }
 
-
 #[async_trait]
-impl ForwardRoutes for Vec<TcpRoute>{
-    async fn forward(&self, body: Vec<u8>) -> Result<()>{
-        tracing::debug!("v: {:?}", &self);
-        for route in self.iter(){
-            let mut stream = TcpStream::connect(
-                &format!("{}:{}", &route.target_host, &route.target_port)
-            )?;
+impl ForwardRoutes for Vec<TcpRoute> {
+    async fn forward(&self, body: Vec<u8>) -> Result<Vec<u8>> {
+        tracing::debug!("routing tcp connection at: {:?}", &self);
+        if let Some(route) = self.choose(&mut rand::thread_rng()) {
+            let mut stream =
+                TcpStream::connect(&format!("{}:{}", &route.target_host, &route.target_port))?;
             stream.write(&body)?;
+            let mut buf = [0; 128];
+            stream.read(&mut buf)?;
+            Ok(buf.to_vec())
+        } else {
+            Err("er".into())
         }
-        Ok(())
     }
 }
-
-
-
