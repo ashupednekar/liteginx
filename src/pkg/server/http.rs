@@ -5,13 +5,14 @@ use tokio::task::JoinHandle;
 
 use crate::{pkg::conf::spec::HttpRoute, prelude::{IoResult, Result}};
 
-use super::{tcp::TcpServer, ForwardRoutes, HttpRoutes};
+use super::{ForwardRoutes, SpawnServers, HttpRoutes};
 
 #[async_trait]
-impl TcpServer for HttpRoutes {
+impl SpawnServers for HttpRoutes {
     async fn listen(&self) -> Result<()> {
         let mut handles: Vec<JoinHandle<IoResult<()>>> = vec![];
         for (port, route) in self.into_iter() {
+            tracing::debug!("loading http server at port: {}", &port);
             handles.push(self.spawn_tcp_proxy(*port, route).await);
         }
         join_all(handles).await;

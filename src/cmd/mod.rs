@@ -1,4 +1,4 @@
-use crate::{conf::settings, pkg::server, prelude::Result};
+use crate::{conf::settings, pkg::server::{self, Server}, prelude::Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -16,7 +16,10 @@ enum SubCommandType {
 pub async fn run() -> Result<()> {
     let args = Cmd::parse();
     match args.command {
-        Some(SubCommandType::Listen) => {}
+        Some(SubCommandType::Listen) => {
+            let server = Server::new()?;
+            server.start().await;
+        }
         None => {
             tracing::error!("no subcommand passed")
         }
