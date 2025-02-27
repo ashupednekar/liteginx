@@ -44,13 +44,14 @@ pub trait SpawnServers {
     async fn listen(&self) -> Result<()>;
 
     async fn spawn_tcp_proxy<T>(&self, port: i32, route: T) -> JoinHandle<IoResult<()>>
-    where T: ForwardRoutes + Send + Sync + Clone
+    where T: ForwardRoutes + Send + Sync + Clone + 'static 
     {
         let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
             .await
             .unwrap();
         tokio::spawn(async move {
             loop {
+                let route = route.clone();
                 let mut socket = match ln.accept().await {
                     Ok((socket, _)) => socket,
                     Err(_) => {
@@ -65,7 +66,9 @@ pub trait SpawnServers {
                             break;
                         }
                         let body = buf[..n].to_vec();
-                        //route.forward(body).await;
+                        if let Err(e) = route.forward(body).await{
+                            tracing::error!(e);
+                        }
                         //send to targets, load-balanced, send response back
                         socket.write_all("OK".as_bytes()).await?;
                     }

@@ -11,8 +11,9 @@ use super::{ForwardRoutes, SpawnServers, HttpRoutes};
 impl SpawnServers for HttpRoutes {
     async fn listen(&self) -> Result<()> {
         let mut handles: Vec<JoinHandle<IoResult<()>>> = vec![];
-        for (port, route) in self.into_iter() {
+        for (port, route) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);
+            let route = route.clone();
             handles.push(self.spawn_tcp_proxy(*port, route).await);
         }
         join_all(handles).await;
@@ -22,7 +23,7 @@ impl SpawnServers for HttpRoutes {
 
 
 #[async_trait]
-impl ForwardRoutes for &Router<Vec<HttpRoute>>{
+impl ForwardRoutes for Router<Vec<HttpRoute>>{
     async fn forward(&self, body: Vec<u8>) -> Result<()>{
         Ok(())
     }
