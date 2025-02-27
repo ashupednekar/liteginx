@@ -10,7 +10,7 @@ use tokio::{
 
 use crate::{
     pkg::conf::spec::{HttpRoute, TcpRoute},
-    prelude::{IoResult, Result},
+    prelude::{map_ioerr, IoResult, Result},
 };
 
 mod http;
@@ -39,7 +39,11 @@ impl Server {
 
 #[async_trait]
 pub trait ForwardRoutes {
-    async fn forward(&self, tx: Sender<Vec<u8>>) -> Result<()>;
+    async fn forward(
+        &self, 
+        body_ch: Receiver<Vec<u8>>, 
+        res_ch: Sender<Vec<u8>>
+    ) ->Result<()>;
 }
 
 #[async_trait]
@@ -62,15 +66,18 @@ pub trait SpawnServers {
                         break;
                     }
                 };
-                let (tx, rx) = channel::<Vec<u8>>(1);
                 tokio::spawn(async move {
                     let mut buf = vec![0; 1024];
                     loop {
+                        let (tx, rx) = channel::<Vec<u8>>(1);
                         let n = socket.read(&mut buf).await?;
                         if n == 0 {
                             break;
                         }
                         let body = buf[..n].to_vec();
+                        tx.send(body).map_err(map_ioerr)?;
+                        route.forward(rx, tx).await.map_err(map_ioerr)?;
+                        //route.forward(body_ch, res_ch)
                         /*let res = route.forward(body).await.map_err(|e| {
                             std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
                         })?;
