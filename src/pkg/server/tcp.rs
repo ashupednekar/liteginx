@@ -20,9 +20,9 @@ impl SpawnServers for TcpRoutes {
     async fn listen(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
-            tracing::debug!("loading tcp server at port: {}", &port);
+            let port = port.clone();
             let route = route.clone();
-            set.spawn(spawn_tcp_proxy(*port, route));
+            set.spawn(spawn_tcp_proxy(port, route));
         }
         set.join_all().await;
         Ok(())
