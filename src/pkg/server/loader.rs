@@ -33,7 +33,7 @@ impl Server {
                         .http_routes
                         .entry(spec.listen_port)
                         .or_insert_with(Router::new)
-                        .insert(&format!("{}/{{path}}", &spec.path), spec.routes)?;
+                        .insert(&format!("{}/{{*p}}", &spec.path[1..]), spec.routes)?;
                 }
                 Spec::Tcp(spec) => {
                     server
