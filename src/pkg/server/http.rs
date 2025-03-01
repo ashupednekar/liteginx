@@ -1,12 +1,11 @@
+use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
-use tokio::{
-    sync::broadcast::{Receiver, Sender}, task::JoinSet, io::{AsyncReadExt, AsyncWriteExt}
-};
 use rand::Rng;
-use crate::{
-    pkg::conf::spec::HttpRoute,
-    prelude::Result,
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::broadcast::{Receiver, Sender},
+    task::JoinSet,
 };
 
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
@@ -29,17 +28,18 @@ impl SpawnServers for HttpRoutes {
     }
 }
 
+
 fn extract_path(body: &[u8]) -> &str {
     let mut lines = body.split(|&b| b == b'\r' || b == b'\n');
-
     if let Some(request_line) = lines.next() {
         let mut parts = request_line.splitn(3, |&b| b == b' ');
-        parts.next(); // Skip method
+        parts.next();
         if let Some(uri) = parts.next() {
-            return std::str::from_utf8(uri).unwrap_or("/");
+            let path = std::str::from_utf8(uri).unwrap_or("/");
+            return path.strip_prefix('/').unwrap_or(path);
         }
     }
-    "/"
+    ""
 }
 
 #[async_trait]
@@ -57,13 +57,15 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let http_routes: Vec<HttpRoute> = matched.value.to_vec();
                     let index = rand::rng().random_range(0..http_routes.len());
                     let route = http_routes[index].clone();
+                    tracing::info!("got matching route, routing to {:?}", &route);
                     let mut stream = route.connect().await;
                     stream.write(&msg).await?;
-                    let mut buf = [1;128];
+                    let mut buf = [1; 128];
                     stream.read(&mut buf).await?;
                     server_tx.send(buf.to_vec())?;
                 }
                 Err(_) => {
+                    tracing::warn!("no matching route found, returning 404");
                     server_tx.send("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".into())?;
                 }
             }

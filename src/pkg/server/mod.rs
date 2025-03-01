@@ -1,15 +1,11 @@
 use async_trait::async_trait;
 use matchit::Router;
 use std::collections::HashMap;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
-    sync::broadcast::{channel, Receiver, Sender},
-};
+use tokio::sync::broadcast::{Receiver, Sender};
 
 use crate::{
     pkg::conf::spec::{HttpRoute, TcpRoute},
-    prelude::{IoResult, ProxyError, Result},
+    prelude::Result,
 };
 
 mod http;

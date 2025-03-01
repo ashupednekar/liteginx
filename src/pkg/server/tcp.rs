@@ -1,7 +1,9 @@
-
 use rand::Rng;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, sync::{broadcast::{Receiver, Sender}}};
 use tokio::task::JoinSet;
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::broadcast::{Receiver, Sender},
+};
 
 use crate::{
     pkg::{conf::spec::TcpRoute, server::TcpRoutes},
@@ -27,8 +29,6 @@ impl SpawnServers for TcpRoutes {
         Ok(())
     }
 }
-
-
 
 #[async_trait]
 impl ForwardRoutes for Vec<TcpRoute> {

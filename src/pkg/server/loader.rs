@@ -1,4 +1,4 @@
-use crate::{conf::settings, prelude::Result};
+use crate::prelude::Result;
 use matchit::Router;
 use std::{
     collections::HashMap,
@@ -22,28 +22,29 @@ impl Server {
             .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
             .collect();
 
-        let mut state = Server {
+        let mut server = Server {
             tcp_routes: HashMap::new(),
             http_routes: HashMap::new(),
         };
         for config in configs {
             match config.spec {
                 Spec::Http(spec) => {
-                    state
+                    server
                         .http_routes
                         .entry(spec.listen_port)
                         .or_insert_with(Router::new)
-                        .insert(spec.path, spec.routes)?;
+                        .insert(&format!("{}/{{path}}", &spec.path), spec.routes)?;
                 }
                 Spec::Tcp(spec) => {
-                    state
+                    server
                         .tcp_routes
                         .entry(spec.listen_port)
                         .or_insert(spec.routes);
                 }
             }
         }
-        Ok(state)
+        tracing::debug!("loaded config: {:#?}", &server);
+        Ok(server)
     }
 }
 

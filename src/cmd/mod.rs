@@ -1,8 +1,4 @@
-use crate::{
-    conf::settings,
-    pkg::server::{self, Server},
-    prelude::Result,
-};
+use crate::{pkg::server::Server, prelude::Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]

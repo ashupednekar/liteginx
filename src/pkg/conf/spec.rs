@@ -13,9 +13,11 @@ pub struct HttpRoute {
     pub rewrite: Option<String>,
 }
 
-impl HttpRoute{
-    pub async fn connect(&self) -> TcpStream{
-        TcpStream::connect(&format!("{}:{}", &self.target_host, &self.target_port)).await.unwrap()
+impl HttpRoute {
+    pub async fn connect(&self) -> TcpStream {
+        let destination = format!("{}:{}", &self.target_host, &self.target_port);
+        tracing::debug!("connecting to remote: {}", &destination);
+        TcpStream::connect(&destination).await.unwrap()
     }
 }
 
@@ -34,9 +36,11 @@ pub struct TcpRoute {
     pub target_port: i32,
 }
 
-impl TcpRoute{
-    pub async fn connect(&self) -> TcpStream{
-        TcpStream::connect(&format!("{}:{}", &self.target_host, &self.target_port)).await.unwrap()
+impl TcpRoute {
+    pub async fn connect(&self) -> TcpStream {
+        let destination = format!("{}:{}", &self.target_host, &self.target_port);
+        tracing::debug!("connecting to remote: {}", &destination);
+        TcpStream::connect(&destination).await.unwrap()
     }
 }
 
