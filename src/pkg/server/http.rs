@@ -8,7 +8,7 @@ use crate::{
     prelude::{IoResult, Result},
 };
 
-use super::{ForwardRoutes, HttpRoutes, SpawnServers};
+use super::{ForwardRoutes, HttpRoutes, SpawnServers, spawn_tcp_proxy};
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {
@@ -17,7 +17,7 @@ impl SpawnServers for HttpRoutes {
         for (port, route) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);
             let route = route.clone();
-            handles.push(self.spawn_tcp_proxy(*port, route).await);
+            handles.push(spawn_tcp_proxy(*port, route).await);
         }
         join_all(handles).await;
         Ok(())
