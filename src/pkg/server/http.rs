@@ -28,7 +28,6 @@ impl SpawnServers for HttpRoutes {
     }
 }
 
-
 fn extract_path(body: &[u8]) -> &str {
     let mut lines = body.split(|&b| b == b'\r' || b == b'\n');
     if let Some(request_line) = lines.next() {
