@@ -8,9 +8,8 @@ pub fn map_ioerr<E: ToString>(err: E) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::Other, err.to_string())
 }
 
-
 #[derive(Error, Debug)]
-pub enum ProxyError{
+pub enum ProxyError {
     #[error("IO error")]
     IOError(#[from] std::io::Error),
     #[error("channel communications error")]
