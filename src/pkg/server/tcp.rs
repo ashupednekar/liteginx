@@ -1,11 +1,7 @@
-use std::{
-    io::{Read, Write},
-    net::TcpStream,
-};
 
+use rand::Rng;
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, sync::{broadcast::{Receiver, Sender}}};
 use tokio::task::JoinSet;
-use rand::seq::SliceRandom;
-use tokio::sync::broadcast::{Sender, Receiver};
 
 use crate::{
     pkg::{conf::spec::TcpRoute, server::TcpRoutes},
@@ -24,28 +20,32 @@ impl SpawnServers for TcpRoutes {
             let route = route.clone();
             set.spawn(spawn_tcp_server(port, route));
         }
-        set.join_all().await;
+        tokio::select! {
+            _ = set.join_all() => {},
+            _ = tokio::signal::ctrl_c() => {}
+        }
         Ok(())
     }
 }
 
 
+
 #[async_trait]
 impl ForwardRoutes for Vec<TcpRoute> {
     async fn forward(
-        &self, 
-        mut client_rx: Receiver<Vec<u8>>, 
-        server_tx: Sender<Vec<u8>>
+        &self,
+        mut client_rx: Receiver<Vec<u8>>,
+        server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
-        while let Ok(msg) = client_rx.recv().await{
-            if let Some(route) = self.choose(&mut rand::thread_rng()) {
-                let mut stream = TcpStream::connect(&format!("{}:{}", &route.target_host, &route.target_port)).unwrap();
-                stream.write(&msg).unwrap();
-                let mut buf = [0; 128];
-                stream.read(&mut buf)?;
-                server_tx.send(buf.to_vec())?;
-            }
-        };
+        while let Ok(msg) = client_rx.recv().await {
+            let index = rand::rng().random_range(0..self.len());
+            let route = self[index].clone();
+            let mut stream = route.connect().await;
+            stream.write(&msg).await?;
+            let mut buf = [0; 128];
+            stream.read(&mut buf).await?;
+            server_tx.send(buf.to_vec())?;
+        }
         Ok(())
     }
 }

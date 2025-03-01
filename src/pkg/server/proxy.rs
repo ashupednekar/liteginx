@@ -63,7 +63,8 @@ where
                 writer.write_all(&msg).await?;
             }
             Ok::<(), ProxyError>(())
-        }) => {}
+        }) => {},
+        _ = tokio::signal::ctrl_c() => {}
     };
     Ok(())
 }

@@ -3,6 +3,7 @@ use std::i32;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
+use tokio::net::TcpStream;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct HttpRoute {
@@ -10,6 +11,12 @@ pub struct HttpRoute {
     pub target_host: String,
     pub target_port: i32,
     pub rewrite: Option<String>,
+}
+
+impl HttpRoute{
+    pub async fn connect(&self) -> TcpStream{
+        TcpStream::connect(&format!("{}:{}", &self.target_host, &self.target_port)).await.unwrap()
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -25,6 +32,12 @@ pub struct Http {
 pub struct TcpRoute {
     pub target_host: String,
     pub target_port: i32,
+}
+
+impl TcpRoute{
+    pub async fn connect(&self) -> TcpStream{
+        TcpStream::connect(&format!("{}:{}", &self.target_host, &self.target_port)).await.unwrap()
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
