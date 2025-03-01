@@ -23,3 +23,4 @@ futures = "0.3.31"
 clap = { version = "4.5.31", features = ["derive"] }
 tokio-test = "0.4.4"
 rand = "0.7.2"
+thiserror = "2.0.11"

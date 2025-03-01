@@ -1,16 +1,15 @@
 use async_trait::async_trait;
 use matchit::Router;
-use std::{collections::HashMap, sync::mpsc::SendError};
+use std::collections::HashMap;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener,
-    sync::broadcast::{channel, Receiver, Sender},
-    task::JoinHandle,
+    net::{TcpListener, TcpStream},
+    sync::broadcast::{channel, Receiver},
 };
 
 use crate::{
     pkg::conf::spec::{HttpRoute, TcpRoute},
-    prelude::{map_ioerr, IoResult, Result},
+    prelude::{IoResult, ProxyError, Result},
 };
 
 mod http;
@@ -39,7 +38,7 @@ impl Server {
 
 #[async_trait]
 pub trait ForwardRoutes {
-    async fn forward(&self, body_ch: Receiver<Vec<u8>>, res_ch: Sender<Vec<u8>>) -> Result<()>;
+    async fn forward(&self, proxy_rx: Receiver<Vec<u8>>) -> Result<Receiver<Vec<u8>>>;
 }
 
 #[async_trait]
@@ -59,34 +58,44 @@ where
         _ = async move {
             loop {
                 let route = route.clone();
-                let mut socket = match ln.accept().await {
+                let socket = match ln.accept().await {
                     Ok((socket, _)) => socket,
                     Err(_) => {
                         break;
                     }
                 };
                 tokio::spawn(async move {
-                    let mut buf = vec![0; 1024];
-                    loop {
-                        let (tx, rx) = channel::<Vec<u8>>(1);
-                        let n = socket.read(&mut buf).await?;
-                        if n == 0 {
-                            break;
-                        }
-                        let body = buf[..n].to_vec();
-                        tx.send(body).map_err(map_ioerr)?;
-                        route.forward(rx, tx).await.map_err(map_ioerr)?;
-                        /*let res = route.forward(body).await.map_err(|e| {
-                            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-                        })?;
-                        socket.write_all(&res).await?;*/
+                    if handle_connection(socket, route).await.is_err(){
+                        tracing::error!("error handling connection");
                     }
-                    Ok::<(), std::io::Error>(())
                 });
             }
         } => {}
     };
     Ok::<(), std::io::Error>(())
+}
+
+pub async fn handle_connection<T>(mut socket: TcpStream, route: T) -> Result<()>
+where
+    T: ForwardRoutes + Send + Sync + Clone + 'static,
+{
+    let mut buf = vec![0; 1024];
+    let (tx, rx) = channel::<Vec<u8>>(1);
+    tokio::select! {
+        _ = route.forward(rx) => {},
+        _ = tokio::spawn(async move{
+            loop {
+                let n = socket.read(&mut buf).await?;
+                if n == 0 {
+                    break;
+                }
+                let body = buf[..n].to_vec();
+                tx.send(body)?;
+            }
+            Ok::<(), ProxyError>(())
+        }) => {}
+    };
+    Ok(())
 }
 
 #[cfg(test)]

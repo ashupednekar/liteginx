@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use matchit::Router;
 use tokio::{
-    sync::broadcast::{Receiver, Sender},
+    sync::{broadcast::{channel, Receiver, Sender}},
     task::JoinSet,
 };
 
@@ -29,7 +29,11 @@ impl SpawnServers for HttpRoutes {
 
 #[async_trait]
 impl ForwardRoutes for Router<Vec<HttpRoute>> {
-    async fn forward(&self, body_ch: Receiver<Vec<u8>>, res_ch: Sender<Vec<u8>>) -> Result<()> {
-        Ok(())
+    async fn forward(&self, mut proxy_rx: Receiver<Vec<u8>>) -> Result<Receiver<Vec<u8>>> {
+        let (tx, rx) = channel::<Vec<u8>>(1);
+        while let Ok(msg) = proxy_rx.recv().await{
+
+        }
+        Ok(rx)
     }
 }
