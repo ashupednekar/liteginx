@@ -46,23 +46,7 @@ impl ForwardRoutes for Vec<TcpRoute> {
             stream.write(&msg).await?;
             tracing::info!("🟡 Reading response from upstream...");
             let mut buf = [0; 128];
-            //stream.try_read(&mut buf)?;
-            match stream.try_read(&mut buf) {
-                Ok(n) if n > 0 => {
-                    server_tx.send(buf[..n].to_vec())?;
-                }
-                Ok(_) => {
-                    tracing::info!("🔴 Upstream closed");
-                    break;
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // No data yet, keep looping
-                }
-                Err(e) => {
-                    tracing::error!("Read error: {:?}", e);
-                    break;
-                }
-            }
+            stream.read(&mut buf).await?;
             server_tx.send(buf.to_vec())?;
         }
         Ok(())
