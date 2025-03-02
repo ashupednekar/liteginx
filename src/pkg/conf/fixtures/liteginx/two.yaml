@@ -1,0 +1,11 @@
+name: one-ingress
+spec:
+  kind: http
+  path: /two
+  listen_port: 80
+  routes:
+  - target_host: localhost
+    target_port: 3000
+    rewrite: /
+tls: 
+  enabled: false

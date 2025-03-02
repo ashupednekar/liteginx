@@ -1,6 +1,7 @@
 use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
+use regex::bytes::Regex;
 use rand::Rng;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -41,6 +42,19 @@ fn extract_path(body: &[u8]) -> &str {
     ""
 }
 
+fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8>{
+    data
+        .windows(search.len())
+        .enumerate()
+        .find(|(_, window)| *window == search)
+        .map(|(i, _)| {
+            let mut new_data = data.clone();
+            new_data.splice(i..i + search.len(), replacement.iter().copied());
+            new_data
+        })
+        .unwrap_or(data)
+}
+
 #[async_trait]
 impl ForwardRoutes for Router<Vec<HttpRoute>> {
     async fn forward(
@@ -48,7 +62,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         mut client_rx: Receiver<Vec<u8>>,
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
-        while let Ok(msg) = client_rx.recv().await {
+        while let Ok(mut msg) = client_rx.recv().await {
             let path = extract_path(&msg);
             tracing::info!("received http message at {}", &path);
             match self.at(&path) {
@@ -58,6 +72,13 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
                     let mut stream = route.connect().await;
+                    if let Some(rewrite) = route.rewrite{
+                        let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
+                        tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
+                        let re = Regex::new(&format!("/{}", &rewrite_key))?;
+                        msg = re.replace_all(&msg, rewrite.as_bytes().to_vec()).to_vec();
+                        //msg = replace_bytes(msg.clone(), path.into(), rewrite.into())
+                    }
                     stream.write(&msg).await?;
                     let mut buf = [1; 128];
                     stream.read(&mut buf).await?;
