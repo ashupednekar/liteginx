@@ -25,7 +25,7 @@ impl HttpRoute {
 pub struct Http {
     #[serde(default = "default_http_kind")]
     pub kind: String,
-    pub path: String, 
+    pub path: String,
     pub listen_port: i32,
     pub routes: Vec<HttpRoute>,
 }

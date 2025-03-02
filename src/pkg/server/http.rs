@@ -1,8 +1,8 @@
 use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
-use regex::bytes::Regex;
 use rand::Rng;
+use regex::bytes::Regex;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     sync::broadcast::{Receiver, Sender},
@@ -42,9 +42,8 @@ fn extract_path(body: &[u8]) -> &str {
     ""
 }
 
-fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8>{
-    data
-        .windows(search.len())
+fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8> {
+    data.windows(search.len())
         .enumerate()
         .find(|(_, window)| *window == search)
         .map(|(i, _)| {
@@ -72,17 +71,26 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
                     let mut stream = route.connect().await;
-                    if let Some(rewrite) = route.rewrite{
+                    if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
-                        let re = Regex::new(&format!("/{}", &rewrite_key))?;
-                        msg = re.replace_all(&msg, rewrite.as_bytes().to_vec()).to_vec();
-                        //msg = replace_bytes(msg.clone(), path.into(), rewrite.into())
+                        msg = replace_bytes(
+                            msg.clone(),
+                            format!("/{}", &rewrite_key).into(),
+                            rewrite.into(),
+                        )
                     }
                     stream.write(&msg).await?;
-                    let mut buf = [1; 128];
-                    stream.read(&mut buf).await?;
-                    server_tx.send(buf.to_vec())?;
+                    let mut buf = vec![0; 1024];
+                    while let Ok(n) = stream.read(&mut buf).await {
+                        if n == 0 {
+                            break;
+                        }
+                        let chunk = buf[..n].to_vec();
+                        if server_tx.send(chunk).is_err() {
+                            break;
+                        }
+                    }
                 }
                 Err(_) => {
                     tracing::warn!("no matching route found, returning 404");
