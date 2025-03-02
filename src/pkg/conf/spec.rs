@@ -17,7 +17,9 @@ impl HttpRoute {
     pub async fn connect(&self) -> TcpStream {
         let destination = format!("{}:{}", &self.target_host, &self.target_port);
         tracing::debug!("connecting to remote: {}", &destination);
-        TcpStream::connect(&destination).await.unwrap()
+        let conn = TcpStream::connect(&destination).await.unwrap();
+        tracing::info!("✅ Connected to upstream: {:?}", &self);
+        conn
     }
 }
 
@@ -40,7 +42,9 @@ impl TcpRoute {
     pub async fn connect(&self) -> TcpStream {
         let destination = format!("{}:{}", &self.target_host, &self.target_port);
         tracing::debug!("connecting to remote: {}", &destination);
-        TcpStream::connect(&destination).await.unwrap()
+        let conn = TcpStream::connect(&destination).await.unwrap();
+        tracing::info!("✅ Connected to upstream: {:?}", &self);
+        conn
     }
 }
 

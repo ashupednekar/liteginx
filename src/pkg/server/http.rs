@@ -81,6 +81,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                         )
                     }
                     stream.write(&msg).await?;
+                    tracing::info!("🟡 Reading response from upstream...");
                     let mut buf = vec![0; 1024];
                     while let Ok(n) = stream.read(&mut buf).await {
                         if n == 0 {
