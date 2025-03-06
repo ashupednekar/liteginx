@@ -1,0 +1,10 @@
+name: one-ingress
+spec:
+  kind: http
+  path: /one
+  listen_port: 80
+  routes:
+  - target_host: localhost
+    target_port: 3000
+tls: 
+  enabled: false
