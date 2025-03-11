@@ -20,8 +20,40 @@ impl TcpRoute {
     pub async fn connect(&self) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) {
         let destination = format!("{}:{}", &self.target_host, &self.target_port);
         tracing::debug!("connecting to remote: {}", &destination);
-        let conn = TcpStream::connect(&destination).await.unwrap();
-        let (tx, rx) = broadcast::channel::<Vec<u8>>(1);
+        let mut stream = TcpStream::connect(&destination).await.unwrap();
+        let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
+        let mut buffer = vec![0; 1024];
+        let (mut recv, mut send) = stream.split();
+        tokio::select! {
+            _ = async{
+                loop {
+                    match recv.read(&mut buffer).await {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            if let Err(e) = tx.send(buffer[..n].to_vec()){
+                                tracing::error!("error sending msg: {}", e.to_string());
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading from stream: {}", e);
+                            break;
+                        }
+                    }
+                }
+            } => {},
+            _ = async{
+                while let Ok(msg) = rx.recv().await{
+                     if let Err(e) = send.write_all(&msg).await{
+                        tracing::error!("error sending msg to stream: {}", e.to_string());
+                        break;               
+                     };
+                }
+            } => {},
+            _ = tokio::signal::ctrl_c() => {}
+        }
+
+
         tracing::info!("✅ Connected to upstream: {:?}", &self);
         (tx, rx)
     }
@@ -63,7 +95,7 @@ impl ForwardRoutes for Vec<TcpRoute> {
                     if let Err(e) = tx.send(msg){
                         tracing::error!("error sending msg: {}", e.to_string());
                         break;
-                    };
+                    }
                 }
             } => {},
             _ = async{
@@ -72,7 +104,7 @@ impl ForwardRoutes for Vec<TcpRoute> {
                     if let Err(e) = server_tx.send(msg){
                         tracing::error!("error sending msg: {}", e.to_string());
                         break;
-                    };
+                    }
                 }
             } => {},
             _ = tokio::signal::ctrl_c() => {}
