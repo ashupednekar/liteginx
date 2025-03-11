@@ -13,16 +13,6 @@ pub struct HttpRoute {
     pub rewrite: Option<String>,
 }
 
-impl HttpRoute {
-    pub async fn connect(&self) -> TcpStream {
-        let destination = format!("{}:{}", &self.target_host, &self.target_port);
-        tracing::debug!("connecting to remote: {}", &destination);
-        let conn = TcpStream::connect(&destination).await.unwrap();
-        tracing::info!("✅ Connected to upstream: {:?}", &self);
-        conn
-    }
-}
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct Http {
     #[serde(default = "default_http_kind")]
@@ -36,16 +26,6 @@ pub struct Http {
 pub struct TcpRoute {
     pub target_host: String,
     pub target_port: i32,
-}
-
-impl TcpRoute {
-    pub async fn connect(&self) -> TcpStream {
-        let destination = format!("{}:{}", &self.target_host, &self.target_port);
-        tracing::debug!("connecting to remote: {}", &destination);
-        let conn = TcpStream::connect(&destination).await.unwrap();
-        tracing::info!("✅ Connected to upstream: {:?}", &self);
-        conn
-    }
 }
 
 #[derive(Deserialize, Debug, Clone)]

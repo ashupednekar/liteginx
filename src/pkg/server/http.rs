@@ -1,15 +1,22 @@
-use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
+use crate::{pkg::conf::spec::{HttpRoute, TcpRoute}, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
 use rand::Rng;
-use regex::bytes::Regex;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::broadcast::{Receiver, Sender},
-    task::JoinSet,
+    io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream, sync::broadcast::{Receiver, Sender}, task::JoinSet
 };
 
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
+
+impl HttpRoute {
+    pub async fn connect(&self) -> TcpStream {
+        TcpRoute{
+            target_host: self.target_host.clone(),
+            target_port: self.target_port
+        }.connect().await
+    }
+}
+
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {
