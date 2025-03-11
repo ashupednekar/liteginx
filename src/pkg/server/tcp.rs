@@ -52,16 +52,30 @@ impl ForwardRoutes for Vec<TcpRoute> {
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
         tracing::debug!("forward started");
-        while let Ok(msg) = client_rx.recv().await {
-            tracing::debug!("received client msg: {:?}", &String::from_utf8(msg.clone()));
-            let index = rand::rng().random_range(0..self.len());
-            let route = self[index].clone();
-            let mut stream = route.connect().await;
-            stream.write(&msg).await?;
-            tracing::info!("🟡 Reading response from upstream...");
-            let mut buf = [0; 128];
-            stream.read(&mut buf).await?;
-            server_tx.send(buf.to_vec())?;
+        let index = rand::rng().random_range(0..self.len());
+        let route = self[index].clone();
+        let (tx, mut rx) = route.connect().await;
+        tokio::select! {
+            _ = async{
+                while let Ok(msg) = client_rx.recv().await {
+                    //TODO: remove string conv debug
+                    tracing::debug!("received client msg: {:?}", &String::from_utf8(msg.clone()));
+                    if let Err(e) = tx.send(msg){
+                        tracing::error!("error sending msg: {}", e.to_string());
+                        break;
+                    };
+                }
+            } => {},
+            _ = async{
+                while let Ok(msg) = rx.recv().await{
+                    tracing::debug!("received server msg: {:?}", &String::from_utf8(msg.clone()));
+                    if let Err(e) = server_tx.send(msg){
+                        tracing::error!("error sending msg: {}", e.to_string());
+                        break;
+                    };
+                }
+            } => {},
+            _ = tokio::signal::ctrl_c() => {}
         }
         Ok(())
     }
