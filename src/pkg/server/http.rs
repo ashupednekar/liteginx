@@ -3,13 +3,13 @@ use async_trait::async_trait;
 use matchit::Router;
 use rand::Rng;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream, sync::broadcast::{Receiver, Sender}, task::JoinSet
+    sync::broadcast::{Receiver, Sender}, task::JoinSet
 };
 
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
 
 impl HttpRoute {
-    pub async fn connect(&self) -> TcpStream {
+    pub async fn connect(&self) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>){
         TcpRoute{
             target_host: self.target_host.clone(),
             target_port: self.target_port
@@ -77,7 +77,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let index = rand::rng().random_range(0..http_routes.len());
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
-                    let mut stream = route.connect().await;
+                    let (tx, mut rx) = route.connect().await;
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
@@ -87,15 +87,10 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                             rewrite.into(),
                         )
                     }
-                    stream.write(&msg).await?;
+                    tx.send(msg)?;
                     tracing::info!("🟡 Reading response from upstream...");
-                    let mut buf = vec![0; 1024];
-                    while let Ok(n) = stream.read(&mut buf).await {
-                        if n == 0 {
-                            break;
-                        }
-                        let chunk = buf[..n].to_vec();
-                        if server_tx.send(chunk).is_err() {
+                    while let Ok(msg) = rx.recv().await {
+                        if server_tx.send(msg).is_err() {
                             break;
                         }
                     }

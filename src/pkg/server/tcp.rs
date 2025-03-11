@@ -1,5 +1,6 @@
 use rand::Rng;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast;
 use tokio::task::JoinSet;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -16,12 +17,13 @@ use super::{proxy::spawn_tcp_server, ForwardRoutes, SpawnServers};
 
 
 impl TcpRoute {
-    pub async fn connect(&self) -> TcpStream {
+    pub async fn connect(&self) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) {
         let destination = format!("{}:{}", &self.target_host, &self.target_port);
         tracing::debug!("connecting to remote: {}", &destination);
         let conn = TcpStream::connect(&destination).await.unwrap();
+        let (tx, rx) = broadcast::channel::<Vec<u8>>(1);
         tracing::info!("✅ Connected to upstream: {:?}", &self);
-        conn
+        (tx, rx)
     }
 }
 
