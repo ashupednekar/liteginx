@@ -3,17 +3,17 @@ use async_trait::async_trait;
 use matchit::Router;
 use rand::Rng;
 use tokio::{
-    sync::broadcast::{Receiver, Sender}, task::JoinSet
+    sync::broadcast::{self, Receiver, Sender}, task::JoinSet
 };
 
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
 
 impl HttpRoute {
-    pub async fn connect(&self) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>){
+    pub async fn connect(&self, tx: Sender<Vec<u8>>){
         TcpRoute{
             target_host: self.target_host.clone(),
             target_port: self.target_port
-        }.connect().await
+        }.listen(tx).await
     }
 }
 
@@ -69,6 +69,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
         while let Ok(mut msg) = client_rx.recv().await {
+            //TODO: add streaming/websocket support later
             let path = extract_path(&msg);
             tracing::info!("received http message at {}", &path);
             match self.at(&path) {
@@ -77,7 +78,8 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let index = rand::rng().random_range(0..http_routes.len());
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
-                    let (tx, mut rx) = route.connect().await;
+                    let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
+                    route.connect(tx.clone()).await;
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);

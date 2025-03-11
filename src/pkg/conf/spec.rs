@@ -3,8 +3,6 @@ use std::i32;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
-use tokio::net::TcpStream;
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct HttpRoute {
     pub host: Option<String>,
