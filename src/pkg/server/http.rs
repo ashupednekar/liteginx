@@ -69,7 +69,6 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
         while let Ok(mut msg) = client_rx.recv().await {
-            //TODO: add streaming/websocket support later
             let path = extract_path(&msg);
             tracing::info!("received http message at {}", &path);
             match self.at(&path) {
@@ -80,6 +79,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     tracing::info!("got matching route, routing to {:?}", &route);
                     let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
                     route.connect(tx.clone()).await;
+                    // TODO: this is blocking, fix it
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);

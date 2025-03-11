@@ -25,6 +25,7 @@ impl TcpRoute {
         let mut buffer = vec![0; 1024];
         let mut rx = tx.subscribe();
         let (mut recv, mut send) = stream.split();
+        //TODO: messages are being mirrored back, fix it
         tokio::select! {
             _ = async{
                 loop {
