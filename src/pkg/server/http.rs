@@ -1,15 +1,22 @@
-use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
+use crate::{pkg::conf::spec::{HttpRoute, TcpRoute}, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
 use rand::Rng;
-use regex::bytes::Regex;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::broadcast::{Receiver, Sender},
-    task::JoinSet,
+    sync::broadcast::{self, Receiver, Sender}, task::JoinSet
 };
 
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
+
+impl HttpRoute {
+    pub async fn connect(&self, tx: Sender<Vec<u8>>){
+        TcpRoute{
+            target_host: self.target_host.clone(),
+            target_port: self.target_port
+        }.listen(tx).await
+    }
+}
+
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {
@@ -70,7 +77,9 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let index = rand::rng().random_range(0..http_routes.len());
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
-                    let mut stream = route.connect().await;
+                    let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
+                    route.connect(tx.clone()).await;
+                    // TODO: this is blocking, fix it
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
@@ -80,15 +89,10 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                             rewrite.into(),
                         )
                     }
-                    stream.write(&msg).await?;
+                    tx.send(msg)?;
                     tracing::info!("🟡 Reading response from upstream...");
-                    let mut buf = vec![0; 1024];
-                    while let Ok(n) = stream.read(&mut buf).await {
-                        if n == 0 {
-                            break;
-                        }
-                        let chunk = buf[..n].to_vec();
-                        if server_tx.send(chunk).is_err() {
+                    while let Ok(msg) = rx.recv().await {
+                        if server_tx.send(msg).is_err() {
                             break;
                         }
                     }
