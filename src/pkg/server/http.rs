@@ -68,40 +68,54 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         mut client_rx: Receiver<Vec<u8>>,
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
-        while let Ok(mut msg) = client_rx.recv().await {
-            let path = extract_path(&msg);
-            tracing::info!("received http message at {}", &path);
-            match self.at(&path) {
-                Ok(matched) => {
-                    let http_routes: Vec<HttpRoute> = matched.value.to_vec();
-                    let index = rand::rng().random_range(0..http_routes.len());
-                    let route = http_routes[index].clone();
-                    tracing::info!("got matching route, routing to {:?}", &route);
-                    let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
-                    //route.listen(tx.clone()).await;
-                    // TODO: this is blocking, fix it
-                    if let Some(rewrite) = route.rewrite {
-                        let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
-                        tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
-                        msg = replace_bytes(
-                            msg.clone(),
-                            format!("/{}", &rewrite_key).into(),
-                            rewrite.into(),
-                        )
-                    }
-                    tx.send(msg)?;
-                    tracing::info!("🟡 Reading response from upstream...");
-                    while let Ok(msg) = rx.recv().await {
-                        if server_tx.send(msg).is_err() {
-                            break;
+        let (proxy_tx, proxy_rx) = broadcast::channel::<Vec<u8>>(1);
+        let (upstream_tx, mut upstream_rx) = broadcast::channel::<Vec<u8>>(1);
+        tokio::select! {
+            //_ = route.listen(proxy_rx, upstream_tx) => {},
+            _ = async{
+                while let Ok(mut msg) = client_rx.recv().await {
+
+                    let path = extract_path(&msg);
+                    tracing::info!("received http message at {}", &path);
+                    match self.at(&path) {
+                        Ok(matched) => {
+                            let http_routes: Vec<HttpRoute> = matched.value.to_vec();
+                            let index = rand::rng().random_range(0..http_routes.len());
+                            let route = http_routes[index].clone(); 
+                            tracing::info!("got matching route, routing to {:?}", &route);
+                            if let Some(rewrite) = route.rewrite {
+                                let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
+                                tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
+                                msg = replace_bytes(
+                                    msg.clone(),
+                                    format!("/{}", &rewrite_key).into(),
+                                    rewrite.into(),
+                                )
+                            }
+                            if let Err(e) = proxy_tx.send(msg){
+                                eprintln!("error sending msg: {}", e);
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            tracing::warn!("no matching route found, returning 404");
+                            if let Err(e) = server_tx.send("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".into()){
+                                eprintln!("error sending msg: {}", e);
+                                break;
+                            }
                         }
                     }
                 }
-                Err(_) => {
-                    tracing::warn!("no matching route found, returning 404");
-                    server_tx.send("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".into())?;
+            } => {},
+            _ = async{
+                while let Ok(msg) = upstream_rx.recv().await{
+                    if let Err(e) = server_tx.send(msg){
+                        eprintln!("error sending msg: {}", e);
+                        break;
+                    }
                 }
-            }
+            } => {},
+            _ = tokio::signal::ctrl_c() => {}
         }
         Ok(())
     }
