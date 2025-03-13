@@ -54,7 +54,6 @@ where
                     break;
                 }
                 let body = buf[..n].to_vec();
-                tracing::debug!("passing client message: {:?}", String::from_utf8(body.clone()));
                 client_tx.send(body)?;
             }
             Ok::<(), ProxyError>(())

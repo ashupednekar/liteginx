@@ -17,13 +17,12 @@ use super::{proxy::spawn_tcp_server, ForwardRoutes, SpawnServers};
 
 
 impl TcpRoute {
-    pub async fn listen(&self, tx: Sender<Vec<u8>>) {
+    pub async fn listen(&self, mut proxy_rx: Receiver<Vec<u8>>, upstream_tx: Sender<Vec<u8>>) {
         let destination = format!("{}:{}", &self.target_host, &self.target_port);
         tracing::debug!("connecting to remote: {}", &destination);
         let mut stream = TcpStream::connect(&destination).await.unwrap();
         tracing::info!("✅ Connected to upstream: {:?}", &self);
         let mut buffer = vec![0; 1024];
-        let mut rx = tx.subscribe();
         let (mut recv, mut send) = stream.split();
         //TODO: messages are being mirrored back, fix it
         tokio::select! {
@@ -32,7 +31,7 @@ impl TcpRoute {
                     match recv.read(&mut buffer).await {
                         Ok(0) => break,
                         Ok(n) => {
-                            if let Err(e) = tx.send(buffer[..n].to_vec()){
+                            if let Err(e) = upstream_tx.send(buffer[..n].to_vec()){
                                 tracing::error!("error sending msg: {}", e.to_string());
                                 break;
                             }
@@ -45,9 +44,9 @@ impl TcpRoute {
                 }
             } => {},
             _ = async{
-                while let Ok(msg) = rx.recv().await{
+                while let Ok(msg) = proxy_rx.recv().await{
                      if let Err(e) = send.write_all(&msg).await{
-                        tracing::error!("error sending msg to stream: {}", e.to_string());
+                        eprintln!("error sending msg to stream: {}", e);
                         break;               
                      };
                 }
@@ -59,7 +58,7 @@ impl TcpRoute {
 
 #[async_trait]
 impl SpawnServers for TcpRoutes {
-    async fn listen(&self) -> Result<()> {
+    async fn spawn(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
             let port = port.clone();
@@ -84,24 +83,22 @@ impl ForwardRoutes for Vec<TcpRoute> {
         tracing::debug!("forward started");
         let index = rand::rng().random_range(0..self.len());
         let route = self[index].clone();
-        let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
+        let (proxy_tx, proxy_rx) = broadcast::channel::<Vec<u8>>(1);
+        let (upstream_tx, mut upstream_rx) = broadcast::channel::<Vec<u8>>(1);
         tokio::select! {
-            _ = route.listen(tx.clone()) => {},
+            _ = route.listen(proxy_rx, upstream_tx) => {},
             _ = async{
                 while let Ok(msg) = client_rx.recv().await {
-                    //TODO: remove string conv debug
-                    tracing::debug!("received client msg: {:?}", &String::from_utf8(msg.clone()));
-                    if let Err(e) = tx.send(msg){
-                        tracing::error!("error sending msg: {}", e.to_string());
+                    if let Err(e) = proxy_tx.send(msg){
+                        eprintln!("error sending msg: {}", e);
                         break;
                     }
                 }
             } => {},
             _ = async{
-                while let Ok(msg) = rx.recv().await{
-                    tracing::debug!("received server msg: {:?}", &String::from_utf8(msg.clone()));
+                while let Ok(msg) = upstream_rx.recv().await{
                     if let Err(e) = server_tx.send(msg){
-                        tracing::error!("error sending msg: {}", e.to_string());
+                        eprintln!("error sending msg: {}", e);
                         break;
                     }
                 }

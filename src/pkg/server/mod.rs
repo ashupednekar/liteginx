@@ -26,8 +26,8 @@ impl Server {
     pub async fn start(&self) {
         tracing::info!("starting proxy");
         tokio::select! {
-            _ = self.tcp_routes.listen() => {},
-            _ = self.http_routes.listen() => {},
+            _ = self.tcp_routes.spawn() => {},
+            _ = self.http_routes.spawn() => {},
             _ = tokio::signal::ctrl_c() => {}
         }
     }
@@ -41,7 +41,7 @@ pub trait ForwardRoutes {
 
 #[async_trait]
 pub trait SpawnServers {
-    async fn listen(&self) -> Result<()>;
+    async fn spawn(&self) -> Result<()>;
 }
 
 #[cfg(test)]

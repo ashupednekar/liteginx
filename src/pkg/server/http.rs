@@ -9,18 +9,18 @@ use tokio::{
 use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
 
 impl HttpRoute {
-    pub async fn connect(&self, tx: Sender<Vec<u8>>){
+    pub async fn listen(&self, proxy_rx: Receiver<Vec<u8>>, upstream_tx: Sender<Vec<u8>>){
         TcpRoute{
             target_host: self.target_host.clone(),
             target_port: self.target_port
-        }.listen(tx).await
+        }.listen(proxy_rx, upstream_tx).await
     }
 }
 
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {
-    async fn listen(&self) -> Result<()> {
+    async fn spawn(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);
@@ -78,7 +78,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
                     let (tx, mut rx) = broadcast::channel::<Vec<u8>>(1);
-                    route.connect(tx.clone()).await;
+                    //route.listen(tx.clone()).await;
                     // TODO: this is blocking, fix it
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
