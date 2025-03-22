@@ -71,10 +71,8 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         let (proxy_tx, proxy_rx) = broadcast::channel::<Vec<u8>>(1);
         let (upstream_tx, mut upstream_rx) = broadcast::channel::<Vec<u8>>(1);
         tokio::select! {
-            //_ = route.listen(proxy_rx, upstream_tx) => {},
             _ = async{
                 while let Ok(mut msg) = client_rx.recv().await {
-
                     let path = extract_path(&msg);
                     tracing::info!("received http message at {}", &path);
                     match self.at(&path) {
@@ -91,10 +89,6 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                                     format!("/{}", &rewrite_key).into(),
                                     rewrite.into(),
                                 )
-                            }
-                            if let Err(e) = proxy_tx.send(msg){
-                                eprintln!("error sending msg: {}", e);
-                                break;
                             }
                         }
                         Err(_) => {
