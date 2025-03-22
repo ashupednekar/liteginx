@@ -17,6 +17,19 @@ impl HttpRoute {
     }
 }
 
+impl HttpRoute {
+    pub async fn listen_upstream(&self) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>){
+        let (proxy_tx, proxy_rx) = broadcast::channel::<Vec<u8>>(1);
+        let (upstream_tx, upstream_rx) = broadcast::channel::<Vec<u8>>(1);
+        TcpRoute{
+            target_host: self.target_host.clone(),
+            target_port: self.target_port
+        }.listen(proxy_rx, upstream_tx).await;
+        (proxy_tx, upstream_rx)
+    }
+}
+
+
 
 #[async_trait]
 impl SpawnServers for HttpRoutes {

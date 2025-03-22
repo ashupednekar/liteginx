@@ -1,5 +1,6 @@
 use crate::prelude::Result;
 use matchit::Router;
+use tokio::sync::broadcast;
 use std::{
     collections::HashMap,
     env,
@@ -25,8 +26,11 @@ impl Server {
         let mut server = Server {
             tcp_routes: HashMap::new(),
             http_routes: HashMap::new(),
+            upstream_chans: HashMap::new()
         };
         for config in configs {
+            let (server_tx, server_rx) = broadcast::channel::<Vec<u8>>(1);
+            let (upstream_tx, upstream_rx) = broadcast::channel::<Vec<u8>>(1);
             match config.spec {
                 Spec::Http(spec) => {
                     server
@@ -34,12 +38,18 @@ impl Server {
                         .entry(spec.listen_port)
                         .or_insert_with(Router::new)
                         .insert(&format!("{}/{{*p}}", &spec.path[1..]), spec.routes)?;
+                    server
+                        .upstream_chans
+                        .insert(spec.listen_port, (server_tx, upstream_rx));
                 }
                 Spec::Tcp(spec) => {
                     server
                         .tcp_routes
                         .entry(spec.listen_port)
                         .or_insert(spec.routes);
+                    server
+                        .upstream_chans
+                        .insert(spec.listen_port, (server_tx, upstream_rx));
                 }
             }
         }
