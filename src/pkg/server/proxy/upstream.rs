@@ -1,19 +1,12 @@
-use rand::Rng;
 use tokio::net::TcpStream;
 use tokio::task::JoinSet;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::broadcast::{Receiver, Sender},
-};
-
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::pkg::server::SpawnUpstreamClients;
 use crate::{
-    pkg::{conf::spec::TcpRoute, server::TcpRoutes},
+    pkg::server::TcpRoutes,
     prelude::Result,
 };
 use async_trait::async_trait;
-
-use super::SpawnUpstreamClients;
-use super::{proxy::spawn_tcp_server, SpawnDownstreamServers};
 
 #[async_trait]
 impl SpawnUpstreamClients for TcpRoutes {
@@ -74,20 +67,4 @@ impl SpawnUpstreamClients for TcpRoutes {
     }
 }
 
-#[async_trait]
-impl SpawnDownstreamServers for TcpRoutes {
-    async fn listen_downstream(&self) -> Result<()> {
-        let mut set = JoinSet::new();
-        for (port, routes) in self.iter() {
-            tracing::debug!("loading http server at port: {}", &port);
-            let port = port.clone();
-            let routes = routes.clone();
-            set.spawn(spawn_tcp_server(port, routes));
-        }
-        tokio::select! {
-            _ = set.join_all() => {},
-            _ = tokio::signal::ctrl_c() => {}
-        }
-        Ok(())
-    }
-}
+

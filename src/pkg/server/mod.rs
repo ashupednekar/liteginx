@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use matchit::Router;
 use std::collections::HashMap;
-use tokio::sync::broadcast::{Receiver, Sender};
 
 use crate::{
     pkg::conf::spec::{HttpRoute, TcpRoute},
@@ -11,7 +10,6 @@ use crate::{
 mod http;
 mod loader;
 mod proxy;
-mod tcp;
 
 pub type TcpRoutes = HashMap<i32, Vec<TcpRoute>>;
 pub type HttpRoutes = HashMap<i32, Router<Vec<HttpRoute>>>;

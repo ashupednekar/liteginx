@@ -1,23 +1,3 @@
-use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
-use async_trait::async_trait;
-use matchit::Router;
-use rand::Rng;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::broadcast::{Receiver, Sender},
-    task::JoinSet,
-};
-
-use super::{proxy::spawn_tcp_server, HttpRoutes, SpawnDownstreamServers, SpawnUpstreamClients};
-
-#[async_trait]
-impl SpawnUpstreamClients for HttpRoutes {
-    async fn listen_upstream(&self) -> Result<()> {
-        for (_, route) in self.iter() {}
-        Ok(())
-    }
-}
-
 fn extract_path(body: &[u8]) -> &str {
     let mut lines = body.split(|&b| b == b'\r' || b == b'\n');
     if let Some(request_line) = lines.next() {
@@ -42,54 +22,3 @@ fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8
         })
         .unwrap_or(data)
 }
-
-/*
-#[async_trait]
-impl ForwardRoutes for Router<Vec<HttpRoute>> {
-    async fn forward(
-        &self,
-        mut client_rx: Receiver<Vec<u8>>,
-        server_tx: Sender<Vec<u8>>,
-    ) -> Result<()> {
-        while let Ok(mut msg) = client_rx.recv().await {
-            let path = extract_path(&msg);
-            tracing::info!("received http message at {}", &path);
-            match self.at(&path) {
-                Ok(matched) => {
-                    let http_routes: Vec<HttpRoute> = matched.value.to_vec();
-                    let index = rand::rng().random_range(0..http_routes.len());
-                    let route = http_routes[index].clone();
-                    tracing::info!("got matching route, routing to {:?}", &route);
-                    //let mut stream = route.connect().await;
-                    if let Some(rewrite) = route.rewrite {
-                        let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
-                        tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
-                        msg = replace_bytes(
-                            msg.clone(),
-                            format!("/{}", &rewrite_key).into(),
-                            rewrite.into(),
-                        )
-                    }
-                    /*stream.write(&msg).await?;
-                    tracing::info!("🟡 Reading response from upstream...");
-                    let mut buf = vec![0; 1024];
-                    while let Ok(n) = stream.read(&mut buf).await {
-                        if n == 0 {
-                            break;
-                        }
-                        let chunk = buf[..n].to_vec();
-                        if server_tx.send(chunk).is_err() {
-                            break;
-                        }
-                    }*/
-                }
-                Err(_) => {
-                    tracing::warn!("no matching route found, returning 404");
-                    server_tx.send("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".into())?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-*/
