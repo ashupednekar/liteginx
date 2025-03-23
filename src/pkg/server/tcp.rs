@@ -15,14 +15,13 @@ use async_trait::async_trait;
 use super::SpawnUpstreamClients;
 use super::{proxy::spawn_tcp_server, SpawnDownstreamServers};
 
-
 #[async_trait]
 impl SpawnUpstreamClients for TcpRoutes {
     async fn listen_upstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (_, routes) in self.iter() {
             let routes = routes.clone();
-            for route in routes{
+            for route in routes {
                 set.spawn(async move{
                     let destination = format!("{}:{}", &route.target_host, &route.target_port);
                     tracing::debug!("connecting to remote: {}", &destination);
@@ -74,9 +73,8 @@ impl SpawnUpstreamClients for TcpRoutes {
     }
 }
 
-
 #[async_trait]
-impl SpawnDownstreamServers for TcpRoutes{
+impl SpawnDownstreamServers for TcpRoutes {
     async fn listen_downstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
@@ -92,4 +90,3 @@ impl SpawnDownstreamServers for TcpRoutes{
         Ok(())
     }
 }
-

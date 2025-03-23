@@ -37,7 +37,7 @@ impl Server {
                     server
                         .tcp_routes
                         .entry(spec.listen_port)
-                        .or_insert(spec.routes.iter().map(|r|r.to_tcp()).collect());
+                        .or_insert(spec.routes.iter().map(|r| r.to_tcp()).collect());
                 }
                 Spec::Tcp(spec) => {
                     server

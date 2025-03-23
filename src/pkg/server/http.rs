@@ -13,9 +13,7 @@ use super::{proxy::spawn_tcp_server, HttpRoutes, SpawnDownstreamServers, SpawnUp
 #[async_trait]
 impl SpawnUpstreamClients for HttpRoutes {
     async fn listen_upstream(&self) -> Result<()> {
-        for (_, route) in self.iter(){
-            
-        } 
+        for (_, route) in self.iter() {}
         Ok(())
     }
 }

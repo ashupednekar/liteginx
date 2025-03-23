@@ -3,7 +3,10 @@ use std::i32;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
-use tokio::{net::TcpStream, sync::broadcast::{channel, Sender, Receiver}};
+use tokio::{
+    net::TcpStream,
+    sync::broadcast::{channel, Receiver, Sender},
+};
 
 #[derive(Debug, Clone)]
 pub struct HttpRoute {
@@ -15,18 +18,18 @@ pub struct HttpRoute {
     pub upstream_tx: Sender<Vec<u8>>,
 }
 
-pub trait ToTcp{
+pub trait ToTcp {
     fn to_tcp(&self) -> TcpRoute;
 }
 
-impl ToTcp for HttpRoute{
+impl ToTcp for HttpRoute {
     fn to_tcp(&self) -> TcpRoute {
-        TcpRoute{
+        TcpRoute {
             target_host: self.target_host.clone(),
             target_port: self.target_port,
             proxy_tx: self.proxy_tx.clone(),
             upstream_tx: self.upstream_tx.clone(),
-            listen: false
+            listen: false,
         }
     }
 }
@@ -46,13 +49,13 @@ pub struct TcpRoute {
     pub target_port: i32,
     pub proxy_tx: Sender<Vec<u8>>,
     pub upstream_tx: Sender<Vec<u8>>,
-    pub listen: bool
+    pub listen: bool,
 }
 
-impl <'de> Deserialize<'de> for TcpRoute{
+impl<'de> Deserialize<'de> for TcpRoute {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de> 
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct TcpRouteHelper {
@@ -63,19 +66,20 @@ impl <'de> Deserialize<'de> for TcpRoute{
         let helper = TcpRouteHelper::deserialize(deserializer)?;
         let (proxy_tx, _) = channel::<Vec<u8>>(1);
         let (upstream_tx, _) = channel::<Vec<u8>>(1);
-        Ok(TcpRoute { 
-            target_host: helper.target_host, 
-            target_port: helper.target_port, 
-            proxy_tx, upstream_tx,
-            listen: true
+        Ok(TcpRoute {
+            target_host: helper.target_host,
+            target_port: helper.target_port,
+            proxy_tx,
+            upstream_tx,
+            listen: true,
         })
     }
 }
 
-impl <'de> Deserialize<'de> for HttpRoute{
+impl<'de> Deserialize<'de> for HttpRoute {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de> 
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct HttpRouteHelper {
@@ -88,16 +92,16 @@ impl <'de> Deserialize<'de> for HttpRoute{
         let helper = HttpRouteHelper::deserialize(deserializer)?;
         let (proxy_tx, _) = channel::<Vec<u8>>(1);
         let (upstream_tx, _) = channel::<Vec<u8>>(1);
-        Ok(HttpRoute { 
+        Ok(HttpRoute {
             host: helper.host,
-            target_host: helper.target_host, 
-            target_port: helper.target_port, 
+            target_host: helper.target_host,
+            target_port: helper.target_port,
             rewrite: helper.rewrite,
-            proxy_tx, upstream_tx 
+            proxy_tx,
+            upstream_tx,
         })
     }
 }
-
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tcp {

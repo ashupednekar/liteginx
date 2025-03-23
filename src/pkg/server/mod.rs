@@ -33,7 +33,6 @@ impl Server {
     }
 }
 
-
 #[async_trait]
 pub trait SpawnDownstreamServers {
     async fn listen_downstream(&self) -> Result<()>;
