@@ -12,7 +12,7 @@ use crate::pkg::conf::spec::{Config, Spec};
 use super::Server;
 
 impl Server {
-    pub fn new() -> Result<Server> {
+    pub async fn new() -> Result<Server> {
         let config_path =
             env::var("LITEGINX_CONF_DIR").unwrap_or(format!("{}/.config/liteginx", env!("HOME")));
         let configs: Vec<Config> = fs::read_dir(&config_path)?
@@ -79,11 +79,11 @@ mod tests {
 
     use super::*;
 
-    #[test]
+    #[tokio::test]
     #[traced_test]
-    fn test_load_state() -> Result<()> {
+    async fn test_load_state() -> Result<()> {
         unsafe { std::env::set_var("LITEGINX_CONF_DIR", "src/pkg/conf/fixtures/liteginx") }
-        let state = Server::new()?;
+        let state = Server::new().await?;
         tracing::debug!("state: {}", &state);
         Ok(())
     }

@@ -17,7 +17,7 @@ pub async fn run() -> Result<()> {
     let args = Cmd::parse();
     match args.command {
         Some(SubCommandType::Listen) => {
-            let server = Server::new()?;
+            let server = Server::new().await?;
             server.start().await;
         }
         None => {

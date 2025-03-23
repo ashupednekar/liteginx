@@ -37,7 +37,7 @@ pub struct TcpRoute {
     pub target_host: String,
     pub target_port: i32,
     pub proxy_tx: Sender<Vec<u8>>,
-    pub upstream_tx: Sender<Vec<u8>>
+    pub upstream_tx: Sender<Vec<u8>>,
 }
 
 impl <'de> Deserialize<'de> for TcpRoute{
@@ -52,10 +52,13 @@ impl <'de> Deserialize<'de> for TcpRoute{
         }
 
         let helper = TcpRouteHelper::deserialize(deserializer)?;
-        let (proxy_tx, proxy_rx) = channel::<Vec<u8>>(1);
-        let (upstream_tx, upstream_rx) = channel::<Vec<u8>>(1);
-        // connect to upstream
-        Ok(TcpRoute { target_host: helper.target_host, target_port: helper.target_port, proxy_tx, upstream_tx })
+        let (proxy_tx, _) = channel::<Vec<u8>>(1);
+        let (upstream_tx, _) = channel::<Vec<u8>>(1);
+        Ok(TcpRoute { 
+            target_host: helper.target_host, 
+            target_port: helper.target_port, 
+            proxy_tx, upstream_tx 
+        })
     }
 }
 

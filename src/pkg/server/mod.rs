@@ -52,7 +52,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn test_server() -> Result<()> {
-        let server = Server::new()?;
+        let server = Server::new().await?;
         server.start().await;
         Ok(())
     }
