@@ -3,7 +3,7 @@ use std::i32;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::broadcast::{channel, Sender, Receiver}};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct HttpRoute {
@@ -32,11 +32,33 @@ pub struct Http {
     pub routes: Vec<HttpRoute>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct TcpRoute {
     pub target_host: String,
     pub target_port: i32,
+    pub proxy_tx: Sender<Vec<u8>>,
+    pub upstream_tx: Sender<Vec<u8>>
 }
+
+impl <'de> Deserialize<'de> for TcpRoute{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de> 
+    {
+        #[derive(Deserialize)]
+        struct TcpRouteHelper {
+            target_host: String,
+            target_port: i32,
+        }
+
+        let helper = TcpRouteHelper::deserialize(deserializer)?;
+        let (proxy_tx, proxy_rx) = channel::<Vec<u8>>(1);
+        let (upstream_tx, upstream_rx) = channel::<Vec<u8>>(1);
+        // connect to upstream
+        Ok(TcpRoute { target_host: helper.target_host, target_port: helper.target_port, proxy_tx, upstream_tx })
+    }
+}
+
 
 impl TcpRoute {
     pub async fn connect(&self) -> TcpStream {
