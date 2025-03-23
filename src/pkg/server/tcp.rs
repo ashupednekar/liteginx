@@ -11,11 +11,13 @@ use crate::{
 };
 use async_trait::async_trait;
 
-use super::{proxy::spawn_tcp_server, ForwardRoutes, SpawnServers};
+use super::SpawnUpstreamClients;
+use super::{proxy::spawn_tcp_server, ForwardRoutes, SpawnDownstreamServers};
+
 
 #[async_trait]
-impl SpawnServers for TcpRoutes {
-    async fn listen(&self) -> Result<()> {
+impl SpawnDownstreamServers for TcpRoutes {
+    async fn listen_downstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
             let port = port.clone();
@@ -31,24 +33,20 @@ impl SpawnServers for TcpRoutes {
 }
 
 #[async_trait]
+impl SpawnUpstreamClients for TcpRoutes {
+    async fn listen_upstream(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+
+#[async_trait]
 impl ForwardRoutes for Vec<TcpRoute> {
     async fn forward(
         &self,
         mut client_rx: Receiver<Vec<u8>>,
         server_tx: Sender<Vec<u8>>,
     ) -> Result<()> {
-        tracing::debug!("forward started");
-        while let Ok(msg) = client_rx.recv().await {
-            tracing::debug!("received client msg: {:?}", &String::from_utf8(msg.clone()));
-            let index = rand::rng().random_range(0..self.len());
-            let route = self[index].clone();
-            let mut stream = route.connect().await;
-            stream.write(&msg).await?;
-            tracing::info!("🟡 Reading response from upstream...");
-            let mut buf = [0; 128];
-            stream.read(&mut buf).await?;
-            server_tx.send(buf.to_vec())?;
-        }
         Ok(())
     }
 }

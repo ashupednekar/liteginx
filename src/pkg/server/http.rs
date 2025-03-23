@@ -2,18 +2,24 @@ use crate::{pkg::conf::spec::HttpRoute, prelude::Result};
 use async_trait::async_trait;
 use matchit::Router;
 use rand::Rng;
-use regex::bytes::Regex;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     sync::broadcast::{Receiver, Sender},
     task::JoinSet,
 };
 
-use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnServers};
+use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnDownstreamServers, SpawnUpstreamClients};
 
 #[async_trait]
-impl SpawnServers for HttpRoutes {
-    async fn listen(&self) -> Result<()> {
+impl SpawnUpstreamClients for HttpRoutes {
+    async fn listen_upstream(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl SpawnDownstreamServers for HttpRoutes {
+    async fn listen_downstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, route) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);

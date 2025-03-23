@@ -64,7 +64,6 @@ impl Display for Server {
                 )?;
             }
         }
-
         writeln!(f, "\nHttp Routes:\n")?;
         for (port, router) in &self.http_routes {
             writeln!(f, "Listen at Port: {}\n   route as: {:?}", port, router)?;
