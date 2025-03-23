@@ -27,7 +27,7 @@ impl SpawnUpstreamClients for TcpRoutes {
                     tracing::debug!("connecting to remote: {}", &destination);
                     match TcpStream::connect(&destination).await{
                         Ok(mut stream) => {
-                            //TODO: keep connecting
+                            //TODO: reconnection and idle issues
                             tracing::info!("✅ Connected to upstream: {:?}", &route);
                             let mut buffer = vec![0; 1024];
                             let (mut recv, mut send) = stream.split();

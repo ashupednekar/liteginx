@@ -5,10 +5,12 @@ use tokio::{
     sync::broadcast::channel,
 };
 
-use crate::{pkg::conf::spec::TcpRoute, prelude::{IoResult, ProxyError, Result}};
+use crate::{
+    pkg::conf::spec::TcpRoute,
+    prelude::{IoResult, ProxyError, Result},
+};
 
-pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()>
-{
+pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()> {
     let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
         .await
         .unwrap();
@@ -34,8 +36,7 @@ pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()>
     Ok::<(), std::io::Error>(())
 }
 
-pub async fn handle_connection(socket: TcpStream, routes: Vec<TcpRoute>) -> Result<()>
-{
+pub async fn handle_connection(socket: TcpStream, routes: Vec<TcpRoute>) -> Result<()> {
     let index = rand::rng().random_range(0..routes.len());
     let route = routes[index].clone(); //TODO: maybe consider stickyness later
     let mut buf = vec![0; 1024];
