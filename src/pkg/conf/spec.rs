@@ -5,21 +5,29 @@ use serde::{Deserialize, Deserializer};
 use serde_yaml::Value;
 use tokio::{net::TcpStream, sync::broadcast::{channel, Sender, Receiver}};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct HttpRoute {
     pub host: Option<String>,
     pub target_host: String,
     pub target_port: i32,
     pub rewrite: Option<String>,
+    pub proxy_tx: Sender<Vec<u8>>,
+    pub upstream_tx: Sender<Vec<u8>>,
 }
 
-impl HttpRoute {
-    pub async fn connect(&self) -> TcpStream {
-        let destination = format!("{}:{}", &self.target_host, &self.target_port);
-        tracing::debug!("connecting to remote: {}", &destination);
-        let conn = TcpStream::connect(&destination).await.unwrap();
-        tracing::info!("✅ Connected to upstream: {:?}", &self);
-        conn
+pub trait ToTcp{
+    fn to_tcp(&self) -> TcpRoute;
+}
+
+impl ToTcp for HttpRoute{
+    fn to_tcp(&self) -> TcpRoute {
+        TcpRoute{
+            target_host: self.target_host.clone(),
+            target_port: self.target_port,
+            proxy_tx: self.proxy_tx.clone(),
+            upstream_tx: self.upstream_tx.clone(),
+            listen: false
+        }
     }
 }
 
@@ -38,6 +46,7 @@ pub struct TcpRoute {
     pub target_port: i32,
     pub proxy_tx: Sender<Vec<u8>>,
     pub upstream_tx: Sender<Vec<u8>>,
+    pub listen: bool
 }
 
 impl <'de> Deserialize<'de> for TcpRoute{
@@ -57,21 +66,38 @@ impl <'de> Deserialize<'de> for TcpRoute{
         Ok(TcpRoute { 
             target_host: helper.target_host, 
             target_port: helper.target_port, 
+            proxy_tx, upstream_tx,
+            listen: true
+        })
+    }
+}
+
+impl <'de> Deserialize<'de> for HttpRoute{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de> 
+    {
+        #[derive(Deserialize)]
+        struct HttpRouteHelper {
+            pub host: Option<String>,
+            pub target_host: String,
+            pub target_port: i32,
+            pub rewrite: Option<String>,
+        }
+
+        let helper = HttpRouteHelper::deserialize(deserializer)?;
+        let (proxy_tx, _) = channel::<Vec<u8>>(1);
+        let (upstream_tx, _) = channel::<Vec<u8>>(1);
+        Ok(HttpRoute { 
+            host: helper.host,
+            target_host: helper.target_host, 
+            target_port: helper.target_port, 
+            rewrite: helper.rewrite,
             proxy_tx, upstream_tx 
         })
     }
 }
 
-
-impl TcpRoute {
-    pub async fn connect(&self) -> TcpStream {
-        let destination = format!("{}:{}", &self.target_host, &self.target_port);
-        tracing::debug!("connecting to remote: {}", &destination);
-        let conn = TcpStream::connect(&destination).await.unwrap();
-        tracing::info!("✅ Connected to upstream: {:?}", &self);
-        conn
-    }
-}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tcp {

@@ -6,11 +6,9 @@ use tokio::{
 
 use crate::prelude::{IoResult, ProxyError, Result};
 
-use super::ForwardRoutes;
-
 pub async fn spawn_tcp_server<T>(port: i32, route: T) -> IoResult<()>
 where
-    T: ForwardRoutes + Send + Sync + Clone + 'static,
+    T: Send + Sync + Clone + 'static,
 {
     let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
         .await
@@ -39,14 +37,13 @@ where
 
 pub async fn handle_connection<T>(socket: TcpStream, route: T) -> Result<()>
 where
-    T: ForwardRoutes + Send + Sync + Clone + 'static,
+    T: Send + Sync + Clone + 'static,
 {
     let mut buf = vec![0; 1024];
     let (client_tx, client_rx) = channel::<Vec<u8>>(1);
     let (server_tx, mut server_rx) = channel::<Vec<u8>>(1);
     let (mut reader, mut writer) = tokio::io::split(socket);
     tokio::select! {
-        _ = route.forward(client_rx, server_tx) => {},
         _ = tokio::spawn(async move{
             loop {
                 let n = reader.read(&mut buf).await?;

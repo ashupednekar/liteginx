@@ -1,4 +1,4 @@
-use crate::prelude::Result;
+use crate::{pkg::conf::spec::ToTcp, prelude::Result};
 use matchit::Router;
 use std::{
     collections::HashMap,
@@ -33,7 +33,11 @@ impl Server {
                         .http_routes
                         .entry(spec.listen_port)
                         .or_insert_with(Router::new)
-                        .insert(&format!("{}/{{*p}}", &spec.path[1..]), spec.routes)?;
+                        .insert(&format!("{}/{{*p}}", &spec.path[1..]), spec.routes.clone())?;
+                    server
+                        .tcp_routes
+                        .entry(spec.listen_port)
+                        .or_insert(spec.routes.iter().map(|r|r.to_tcp()).collect());
                 }
                 Spec::Tcp(spec) => {
                     server

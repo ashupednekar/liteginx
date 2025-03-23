@@ -8,14 +8,14 @@ use tokio::{
     task::JoinSet,
 };
 
-use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnDownstreamServers, SpawnUpstreamClients};
+use super::{proxy::spawn_tcp_server, HttpRoutes, SpawnDownstreamServers, SpawnUpstreamClients};
 
 #[async_trait]
 impl SpawnUpstreamClients for HttpRoutes {
     async fn listen_upstream(&self) -> Result<()> {
-        tokio::select! {
-            _ = tokio::signal::ctrl_c() => {}
-        }
+        for (_, route) in self.iter(){
+            
+        } 
         Ok(())
     }
 }
@@ -27,8 +27,8 @@ impl SpawnDownstreamServers for HttpRoutes {
         for (port, route) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);
             let port = port.clone();
-            let route = route.clone();
-            set.spawn(spawn_tcp_server(port, route));
+            let routes = route.clone();
+            set.spawn(spawn_tcp_server(port, routes));
         }
         tokio::select! {
             _ = set.join_all() => {},
@@ -63,6 +63,7 @@ fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8
         .unwrap_or(data)
 }
 
+/*
 #[async_trait]
 impl ForwardRoutes for Router<Vec<HttpRoute>> {
     async fn forward(
@@ -79,7 +80,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                     let index = rand::rng().random_range(0..http_routes.len());
                     let route = http_routes[index].clone();
                     tracing::info!("got matching route, routing to {:?}", &route);
-                    let mut stream = route.connect().await;
+                    //let mut stream = route.connect().await;
                     if let Some(rewrite) = route.rewrite {
                         let rewrite_key = path.replace(matched.params.get("p").unwrap_or(""), "");
                         tracing::info!("rewriting path: {} to {}", &rewrite_key, &rewrite);
@@ -89,7 +90,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                             rewrite.into(),
                         )
                     }
-                    stream.write(&msg).await?;
+                    /*stream.write(&msg).await?;
                     tracing::info!("🟡 Reading response from upstream...");
                     let mut buf = vec![0; 1024];
                     while let Ok(n) = stream.read(&mut buf).await {
@@ -100,7 +101,7 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
                         if server_tx.send(chunk).is_err() {
                             break;
                         }
-                    }
+                    }*/
                 }
                 Err(_) => {
                     tracing::warn!("no matching route found, returning 404");
@@ -111,3 +112,4 @@ impl ForwardRoutes for Router<Vec<HttpRoute>> {
         Ok(())
     }
 }
+*/

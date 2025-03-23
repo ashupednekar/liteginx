@@ -27,19 +27,12 @@ impl Server {
         tracing::info!("starting proxy");
         tokio::select! {
             _ = self.tcp_routes.listen_downstream() => {},
-            _ = self.http_routes.listen_downstream() => {},
             _ = self.tcp_routes.listen_upstream() => {},
-            _ = self.http_routes.listen_upstream() => {},
             _ = tokio::signal::ctrl_c() => {}
         }
     }
 }
 
-#[async_trait]
-pub trait ForwardRoutes {
-    async fn forward(&self, client_rx: Receiver<Vec<u8>>, server_tx: Sender<Vec<u8>>)
-        -> Result<()>;
-}
 
 #[async_trait]
 pub trait SpawnDownstreamServers {
