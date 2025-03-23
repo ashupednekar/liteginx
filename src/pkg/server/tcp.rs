@@ -35,6 +35,9 @@ impl SpawnDownstreamServers for TcpRoutes {
 #[async_trait]
 impl SpawnUpstreamClients for TcpRoutes {
     async fn listen_upstream(&self) -> Result<()> {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+        }
         Ok(())
     }
 }

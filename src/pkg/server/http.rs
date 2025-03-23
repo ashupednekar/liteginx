@@ -13,6 +13,9 @@ use super::{proxy::spawn_tcp_server, ForwardRoutes, HttpRoutes, SpawnDownstreamS
 #[async_trait]
 impl SpawnUpstreamClients for HttpRoutes {
     async fn listen_upstream(&self) -> Result<()> {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+        }
         Ok(())
     }
 }
