@@ -18,24 +18,6 @@ impl SpawnUpstreamClients for HttpRoutes {
     }
 }
 
-#[async_trait]
-impl SpawnDownstreamServers for HttpRoutes {
-    async fn listen_downstream(&self) -> Result<()> {
-        let mut set = JoinSet::new();
-        for (port, route) in self.iter() {
-            tracing::debug!("loading http server at port: {}", &port);
-            let port = port.clone();
-            let routes = route.clone();
-            set.spawn(spawn_tcp_server(port, routes));
-        }
-        tokio::select! {
-            _ = set.join_all() => {},
-            _ = tokio::signal::ctrl_c() => {}
-        }
-        Ok(())
-    }
-}
-
 fn extract_path(body: &[u8]) -> &str {
     let mut lines = body.split(|&b| b == b'\r' || b == b'\n');
     if let Some(request_line) = lines.next() {

@@ -1,14 +1,13 @@
+use rand::Rng;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     sync::broadcast::channel,
 };
 
-use crate::prelude::{IoResult, ProxyError, Result};
+use crate::{pkg::conf::spec::TcpRoute, prelude::{IoResult, ProxyError, Result}};
 
-pub async fn spawn_tcp_server<T>(port: i32, route: T) -> IoResult<()>
-where
-    T: Send + Sync + Clone + 'static,
+pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()>
 {
     let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
         .await
@@ -17,7 +16,7 @@ where
     tokio::select! {
         _ = async move {
             loop {
-                let route = route.clone();
+                let routes = routes.clone();
                 let socket = match ln.accept().await {
                     Ok((socket, _)) => socket,
                     Err(_) => {
@@ -25,7 +24,7 @@ where
                     }
                 };
                 tokio::spawn(async move {
-                    if handle_connection(socket, route).await.is_err(){
+                    if handle_connection(socket, routes).await.is_err(){
                         tracing::error!("error handling connection");
                     }
                 });
@@ -35,13 +34,11 @@ where
     Ok::<(), std::io::Error>(())
 }
 
-pub async fn handle_connection<T>(socket: TcpStream, route: T) -> Result<()>
-where
-    T: Send + Sync + Clone + 'static,
+pub async fn handle_connection(socket: TcpStream, routes: Vec<TcpRoute>) -> Result<()>
 {
+    let index = rand::rng().random_range(0..routes.len());
+    let route = routes[index].clone(); //TODO: maybe consider stickyness later
     let mut buf = vec![0; 1024];
-    let (client_tx, client_rx) = channel::<Vec<u8>>(1);
-    let (server_tx, mut server_rx) = channel::<Vec<u8>>(1);
     let (mut reader, mut writer) = tokio::io::split(socket);
     tokio::select! {
         _ = tokio::spawn(async move{
@@ -52,12 +49,13 @@ where
                 }
                 let body = buf[..n].to_vec();
                 tracing::debug!("passing client message: {:?}", String::from_utf8(body.clone()));
-                client_tx.send(body)?;
+                route.proxy_tx.send(body)?;
             }
             Ok::<(), ProxyError>(())
         }) => {},
         _ = tokio::spawn(async move{
-            while let Ok(msg) = server_rx.recv().await{
+            let mut upstream_rx = route.upstream_tx.subscribe();
+            while let Ok(msg) = upstream_rx.recv().await{
                 writer.write_all(&msg).await?;
             }
             Ok::<(), ProxyError>(())

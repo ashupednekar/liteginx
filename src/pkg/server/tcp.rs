@@ -27,6 +27,7 @@ impl SpawnUpstreamClients for TcpRoutes {
                     tracing::debug!("connecting to remote: {}", &destination);
                     match TcpStream::connect(&destination).await{
                         Ok(mut stream) => {
+                            //TODO: keep connecting
                             tracing::info!("✅ Connected to upstream: {:?}", &route);
                             let mut buffer = vec![0; 1024];
                             let (mut recv, mut send) = stream.split();
@@ -77,10 +78,10 @@ impl SpawnUpstreamClients for TcpRoutes {
 impl SpawnDownstreamServers for TcpRoutes {
     async fn listen_downstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
-        for (port, route) in self.iter() {
+        for (port, routes) in self.iter() {
             tracing::debug!("loading http server at port: {}", &port);
             let port = port.clone();
-            let routes = route.clone();
+            let routes = routes.clone();
             set.spawn(spawn_tcp_server(port, routes));
         }
         tokio::select! {
