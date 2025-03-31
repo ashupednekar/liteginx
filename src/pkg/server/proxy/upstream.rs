@@ -1,6 +1,7 @@
 use tokio::net::TcpStream;
 use tokio::task::JoinSet;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::pkg::conf::spec::Routes;
 use crate::pkg::server::SpawnUpstreamClients;
 use crate::{
     pkg::server::TcpRoutes,
@@ -9,7 +10,7 @@ use crate::{
 use async_trait::async_trait;
 
 #[async_trait]
-impl SpawnUpstreamClients for TcpRoutes {
+impl SpawnUpstreamClients for Routes {
     async fn listen_upstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (_, routes) in self.iter() {

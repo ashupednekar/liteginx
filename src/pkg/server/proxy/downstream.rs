@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use tokio::task::JoinSet;
+use crate::pkg::conf::spec::Routes;
 use crate::pkg::server::SpawnDownstreamServers;
 use crate::{
-    pkg::server::TcpRoutes,
-    prelude::Result,
+    pkg::server::Route,
+    prelude::{Result, IoResult, ProxyError},
 };
 use async_trait::async_trait;
 
@@ -13,14 +16,9 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{
-    pkg::conf::spec::TcpRoute,
-    prelude::{IoResult, ProxyError},
-};
-
 
 #[async_trait]
-impl SpawnDownstreamServers for TcpRoutes {
+impl SpawnDownstreamServers for HashMap<i32, Routes> {
     async fn listen_downstream(&self) -> Result<()> {
         let mut set = JoinSet::new();
         for (port, routes) in self.iter() {
@@ -37,7 +35,7 @@ impl SpawnDownstreamServers for TcpRoutes {
     }
 }
 
-pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()> {
+pub async fn spawn_tcp_server(port: i32, routes: Routes) -> IoResult<()> {
     let ln = TcpListener::bind(&format!("0.0.0.0:{}", &port))
         .await
         .unwrap();
@@ -63,7 +61,7 @@ pub async fn spawn_tcp_server(port: i32, routes: Vec<TcpRoute>) -> IoResult<()> 
     Ok::<(), std::io::Error>(())
 }
 
-pub async fn handle_connection(socket: TcpStream, routes: Vec<TcpRoute>) -> Result<()> {
+pub async fn handle_connection(socket: TcpStream, routes: Routes) -> Result<()> {
     let index = rand::rng().random_range(0..routes.len());
     let route = routes[index].clone(); //TODO: maybe consider stickyness later
     let mut buf = vec![0; 1024];

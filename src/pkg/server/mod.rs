@@ -1,31 +1,29 @@
 use async_trait::async_trait;
-use matchit::Router;
 use std::collections::HashMap;
 
 use crate::{
-    pkg::conf::spec::{HttpRoute, TcpRoute},
+    pkg::conf::spec::Route,
     prelude::Result,
 };
+
+use super::conf::spec::Routes;
 
 mod http;
 mod loader;
 mod proxy;
 
-pub type TcpRoutes = HashMap<i32, Vec<TcpRoute>>;
-pub type HttpRoutes = HashMap<i32, Router<Vec<HttpRoute>>>;
 
 #[derive(Debug)]
-pub struct Server {
-    tcp_routes: TcpRoutes,
-    http_routes: HttpRoutes,
+pub struct Server{
+    pub routes: HashMap<i32, Routes>
 }
 
 impl Server {
     pub async fn start(&self) {
         tracing::info!("starting proxy");
         tokio::select! {
-            _ = self.tcp_routes.listen_downstream() => {},
-            _ = self.tcp_routes.listen_upstream() => {},
+            _ = self.routes.listen_downstream() => {},
+            _ = self.routes.listen_upstream() => {},
             _ = tokio::signal::ctrl_c() => {}
         }
     }

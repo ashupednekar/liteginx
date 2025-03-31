@@ -1,4 +1,4 @@
-use crate::{pkg::conf::spec::ToTcp, prelude::Result};
+use crate::prelude::Result;
 use matchit::Router;
 use std::{
     collections::HashMap,
@@ -7,7 +7,7 @@ use std::{
     fs,
 };
 
-use crate::pkg::conf::spec::{Config, Spec};
+use crate::pkg::conf::spec::Spec;
 
 use super::Server;
 
@@ -15,37 +15,17 @@ impl Server {
     pub async fn new() -> Result<Server> {
         let config_path =
             env::var("LITEGINX_CONF_DIR").unwrap_or(format!("{}/.config/liteginx", env!("HOME")));
-        let configs: Vec<Config> = fs::read_dir(&config_path)?
+        let configs: Vec<Spec> = fs::read_dir(&config_path)?
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "yaml"))
             .filter_map(|yaml_path| fs::read_to_string(yaml_path.path()).ok())
-            .filter_map(|yaml| serde_yaml::from_str::<Config>(&yaml).ok())
+            .filter_map(|yaml| serde_yaml::from_str::<Spec>(&yaml).ok())
             .collect();
 
         let mut server = Server {
-            tcp_routes: HashMap::new(),
-            http_routes: HashMap::new(),
+            routes: 
         };
         for config in configs {
-            match config.spec {
-                Spec::Http(spec) => {
-                    server
-                        .http_routes
-                        .entry(spec.listen_port)
-                        .or_insert_with(Router::new)
-                        .insert(&format!("{}/{{*p}}", &spec.path[1..]), spec.routes.clone())?;
-                    server
-                        .tcp_routes
-                        .entry(spec.listen_port)
-                        .or_insert(spec.routes.iter().map(|r| r.to_tcp()).collect());
-                }
-                Spec::Tcp(spec) => {
-                    server
-                        .tcp_routes
-                        .entry(spec.listen_port)
-                        .or_insert(spec.routes);
-                }
-            }
         }
         tracing::debug!("loaded config: {:#?}", &server);
         Ok(server)
@@ -57,8 +37,8 @@ impl Display for Server {
         writeln!(f, "\nState Configuration:")?;
         writeln!(f, "===================")?;
 
-        writeln!(f, "TCP Routes:\n")?;
-        for (port, routes) in &self.tcp_routes {
+        writeln!(f, "Routes:\n")?;
+        for (port, routes) in &self.routes {
             writeln!(f, "Listen at Port: {}", port)?;
             for route in routes {
                 writeln!(
@@ -67,10 +47,6 @@ impl Display for Server {
                     route.target_host, route.target_port
                 )?;
             }
-        }
-        writeln!(f, "\nHttp Routes:\n")?;
-        for (port, router) in &self.http_routes {
-            writeln!(f, "Listen at Port: {}\n   route as: {:?}", port, router)?;
         }
         Ok(())
     }
