@@ -1,9 +1,0 @@
-name: redis-ingress
-spec:
-  kind: tcp
-  listen_port: 6379
-  routes: 
-   - target_host: localhost
-     target_port: 6371
-tls:
-  enabled: false
