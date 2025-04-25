@@ -8,7 +8,7 @@ pub struct Endpoint{
 }
 
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct UpstreamTarget{
     pub host: String,
     pub port: u16

@@ -14,7 +14,7 @@ pub enum Kind{
 #[derive(Debug, Deserialize)]
 pub struct IngressSpec{
     pub kind: Kind,
-    pub path: String,
+    pub path: Option<String>,
     pub listen: u16,
     pub rewrite: Option<String>,
     pub targets: Vec<UpstreamTarget>
