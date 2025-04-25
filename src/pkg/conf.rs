@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Settings{
-    pub listen_port: i16
+    pub liteginx_conf_dir: String 
 }
 
 impl Settings{

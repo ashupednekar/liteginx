@@ -6,5 +6,7 @@ pub type Result<T> = core::result::Result<T, ProxyError>;
 #[derive(Error, Debug)]
 pub enum ProxyError{
     #[error("generic error")]
-    Generic
+    Generic,
+    #[error("io error")]
+    IoError(#[from] std::io::Error)
 }

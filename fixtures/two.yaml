@@ -1,0 +1,11 @@
+name: two-ingress
+spec:
+  - kind: http
+    path: /two
+    rewrite: /
+    listen: 80
+    targets:
+    - host: localhost
+      port: 3000
+tls: 
+  enabled: false
