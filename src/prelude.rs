@@ -2,11 +2,10 @@ use thiserror::Error;
 
 pub type Result<T> = core::result::Result<T, ProxyError>;
 
-
 #[derive(Error, Debug)]
-pub enum ProxyError{
+pub enum ProxyError {
     #[error("generic error")]
     Generic,
     #[error("io error")]
-    IoError(#[from] std::io::Error)
+    IoError(#[from] std::io::Error),
 }
