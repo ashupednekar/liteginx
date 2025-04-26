@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fs};
 
+use tokio::sync::broadcast;
+
 use crate::{pkg::conf::settings, prelude::Result};
 use super::{config::{IngressConf, Kind}, routes::{Endpoint, Route, UpstreamTarget} };
 
@@ -47,7 +49,7 @@ impl Route{
             });
         let routes: Vec<Route> = paths
             .into_iter()
-            .map(|(listen, (endpoints, targets))| Route{listen, endpoints, targets})
+            .map(|(listen, (endpoints, targets))| Route{listen, endpoints, targets, ..Default::default()})
             .collect();
         Ok(routes)
     }
