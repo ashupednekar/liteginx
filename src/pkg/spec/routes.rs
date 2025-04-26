@@ -1,5 +1,5 @@
-use serde::{Deserialize, Deserializer};
-use tokio::sync::broadcast::{self, Receiver, Sender};
+use serde::Deserialize;
+use tokio::sync::broadcast::{self, Sender};
 
 #[derive(Debug, Deserialize)]
 pub struct Endpoint {
@@ -7,10 +7,24 @@ pub struct Endpoint {
     pub rewrite: Option<String>,
 }
 
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct UpstreamTarget {
     pub host: String,
     pub port: u16,
+    pub tx: Sender<Vec<u8>>,
+}
+
+impl Default for UpstreamTarget{
+    fn default() -> Self {
+        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
+        Self{host: String::new(), port: 0, tx}
+    }
+}
+
+impl PartialEq for UpstreamTarget{
+    fn eq(&self, other: &Self) -> bool {
+        self.host == other.host && self.port == other.port
+    }
 }
 
 #[derive(Debug)]
@@ -19,18 +33,16 @@ pub struct Route {
     pub endpoints: Vec<Endpoint>,
     pub targets: Vec<UpstreamTarget>,
     pub tx: Sender<Vec<u8>>,
-    pub rx: Receiver<Vec<u8>>,
 }
 
 impl Default for Route {
     fn default() -> Self {
-        let (tx, rx) = broadcast::channel::<Vec<u8>>(1);
+        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
         Route {
             listen: 0,
             endpoints: vec![],
             targets: vec![],
             tx,
-            rx,
         }
     }
 }
