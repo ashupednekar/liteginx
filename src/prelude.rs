@@ -6,6 +6,8 @@ pub type Result<T> = core::result::Result<T, ProxyError>;
 pub enum ProxyError {
     #[error("generic error")]
     Generic,
+    #[error("empty targets, cannot start downstream server")]
+    DownStreamServerEmptyTargets,
     #[error("io error")]
     IoError(#[from] std::io::Error),
 }

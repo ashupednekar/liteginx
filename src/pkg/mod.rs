@@ -3,6 +3,7 @@ use spec::{config::IngressConf, routes::Route};
 
 pub mod conf;
 pub mod spec;
+pub mod server;
 
 async fn listen() -> Result<()> {
     let configs = IngressConf::new()?;
