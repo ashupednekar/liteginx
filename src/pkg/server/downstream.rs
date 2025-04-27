@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tokio::{io::{split, AsyncReadExt}, net::{TcpListener, TcpStream}};
+use tokio::{io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}};
 use crate::{pkg::spec::routes::{Route, UpstreamTarget}, prelude::{ProxyError, Result}};
 use rand::seq::IndexedRandom;
 
@@ -50,7 +50,15 @@ impl ListenDownstream for Route{
                     }
                     let body = buffer[..n].to_vec();
                     conn.target.tx.send(body);
-                    tracing::info!("received downstream message, sending to target");
+                    tracing::info!("received downstream message from client, sent to upstream target");
+                }
+                Ok::<(), ProxyError>(())
+            } => {},
+            _ = async{
+                let mut rx = self.tx.subscribe();
+                while let Ok(msg) = rx.recv().await{
+                    writer.write_all(&msg).await?;
+                    tracing::info!("received upstream message from target, sent downstream");
                 }
                 Ok::<(), ProxyError>(())
             } => {}
