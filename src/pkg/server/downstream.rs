@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tokio::{io::split, net::{TcpListener, TcpStream}};
+use tokio::{io::{split, AsyncReadExt}, net::{TcpListener, TcpStream}};
 use crate::{pkg::spec::routes::{Route, UpstreamTarget}, prelude::{ProxyError, Result}};
 use rand::seq::IndexedRandom;
 
@@ -39,9 +39,22 @@ impl ListenDownstream for Route{
     }
 
     async fn handle(&self, conn: &'async_trait mut DownStreamConn) -> Result<()>{
-        let buffer = vec![1;1024];
+        let mut buffer = vec![1;1024];
         let (mut reader, mut writer) = split(&mut conn.stream);
-
+        tokio::select! {
+            _ = async{
+                loop{
+                    let n = reader.read(&mut buffer).await?;
+                    if n == 0 {
+                        break;
+                    }
+                    let body = buffer[..n].to_vec();
+                    conn.target.tx.send(body);
+                    tracing::info!("received downstream message, sending to target");
+                }
+                Ok::<(), ProxyError>(())
+            } => {}
+        } 
         Ok(())
     }
 }
