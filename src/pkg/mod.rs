@@ -9,7 +9,7 @@ pub mod conf;
 pub mod spec;
 pub mod server;
 
-async fn listen() -> Result<()> {
+pub async fn listen() -> Result<()> {
     let configs = IngressConf::new()?;
     let routes = Route::new(configs)?;
     let set = routes

@@ -1,4 +1,4 @@
-use crate::prelude::Result;
+use crate::{pkg::listen, prelude::Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -16,7 +16,9 @@ enum SubCommandType {
 pub async fn run() -> Result<()> {
     let args = Cmd::parse();
     match args.command {
-        Some(SubCommandType::Listen) => {}
+        Some(SubCommandType::Listen) => {
+            listen().await?; 
+        }
         None => {
             tracing::error!("no subcommand passed");
         }

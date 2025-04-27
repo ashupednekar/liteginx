@@ -9,7 +9,7 @@ pub trait ListenDownstream{
     async fn handle(&self, conn: &'async_trait mut DownStreamConn) -> Result<()>;
 }
 
-struct DownStreamConn<'a>{
+pub struct DownStreamConn<'a>{
     pub target: UpstreamTarget,
     pub stream: &'a mut TcpStream
 }
@@ -49,7 +49,7 @@ impl ListenDownstream for Route{
                         break;
                     }
                     let body = buffer[..n].to_vec();
-                    conn.target.tx.send(body);
+                    conn.target.tx.send(body)?;
                     tracing::info!("received downstream message from client, sent to upstream target");
                 }
                 Ok::<(), ProxyError>(())

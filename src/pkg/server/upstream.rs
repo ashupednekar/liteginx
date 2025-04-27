@@ -14,7 +14,7 @@ impl ListenUpsteram for UpstreamTarget{
         match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await{
             Ok(mut stream) => {
                 tracing::info!("connected to upstream target");
-                let mut buffer = vec![0, 1024];
+                let mut buffer = vec![0; 1024];
                 let (mut recv, mut send) = stream.split();
                 tokio::select! {
                     _ = async {
