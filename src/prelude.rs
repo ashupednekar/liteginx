@@ -8,6 +8,10 @@ pub enum ProxyError {
     Generic,
     #[error("empty targets, cannot start downstream server")]
     DownStreamServerEmptyTargets,
+    #[error("error connecting to upstream target")]
+    UpstreamConnectionRefused,
+    #[error("error sending message downstream")]
+    DownstreamMessageError,
     #[error("io error")]
     IoError(#[from] std::io::Error),
 }
