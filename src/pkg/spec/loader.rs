@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, sync::Arc};
 
 use super::{
     config::{IngressConf, Kind},
@@ -18,7 +18,7 @@ impl IngressConf {
 }
 
 impl Route {
-    pub fn new(configs: Vec<IngressConf>) -> Result<Vec<Route>> {
+    pub fn new(configs: Vec<IngressConf>) -> Result<Vec<Arc<Route>>> {
         let paths: HashMap<u16, (Vec<Endpoint>, Vec<UpstreamTarget>)> = configs
             .iter()
             .flat_map(|conf| {
@@ -49,7 +49,7 @@ impl Route {
                 });
                 paths
             });
-        let routes: Vec<Route> = paths
+        let routes = paths
             .into_iter()
             .map(|(listen, (endpoints, targets))| Route {
                 listen,
@@ -57,6 +57,7 @@ impl Route {
                 targets,
                 ..Default::default()
             })
+            .map(Arc::new)
             .collect();
         Ok(routes)
     }
