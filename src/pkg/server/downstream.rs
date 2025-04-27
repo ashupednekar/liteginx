@@ -9,13 +9,13 @@ pub trait ListenDownstream{
     async fn handle(&self, stream: TcpStream) -> Result<()>;
 }
 
-struct DownstreamConnection{
+struct DownstreamConnection<'a>{
     pub target: UpstreamTarget,
-    pub stream: TcpStream
+    pub stream: &'a TcpStream
 }
 
-impl DownstreamConnection{
-    pub fn new(stream: TcpStream, targets: Vec<UpstreamTarget>) -> Result<Self> {
+impl<'a> DownstreamConnection<'a>{
+    pub fn new(stream: &'a TcpStream, targets: Vec<UpstreamTarget>) -> Result<Self> {
         let target = match targets.choose(&mut rand::rng()) {
             Some(t) => t.clone(),
             None => {
@@ -33,6 +33,7 @@ impl ListenDownstream for Route{
         let listener = TcpListener::bind(&format!("0.0.0.0:{}", &self.listen)).await?;
         loop{
             let (stream, _) = listener.accept().await?;
+            let conn = DownstreamConnection::new(&stream, self.targets.clone())?;
             self.handle(stream).await?;
         }
     }
