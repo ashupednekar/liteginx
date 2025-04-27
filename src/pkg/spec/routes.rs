@@ -14,6 +14,26 @@ pub struct UpstreamTarget {
     pub tx: Sender<Vec<u8>>,
 }
 
+#[derive(Deserialize)]
+struct TargetAddr{
+    pub host: String,
+    pub port: u16
+}
+
+impl<'de> Deserialize<'de> for UpstreamTarget{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de> {
+        let addr = TargetAddr::deserialize(deserializer)?;
+        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
+        Ok(Self{
+            host: addr.host,
+            port: addr.port,
+            tx
+        })
+    }
+}
+
 impl Default for UpstreamTarget{
     fn default() -> Self {
         let (tx, _) = broadcast::channel::<Vec<u8>>(1);
