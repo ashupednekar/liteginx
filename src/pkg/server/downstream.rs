@@ -4,9 +4,9 @@ use crate::{pkg::{server::upstream::ListenUpsteram, spec::routes::{Route, Upstre
 use rand::seq::IndexedRandom;
 
 #[async_trait]
-pub trait ListenDownstream{
+pub trait ListenDownstream<'a>{
     async fn serve(&self) -> Result<()>;
-    async fn handle(&self, conn: &'async_trait mut DownStreamConn) -> Result<()>;
+    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()>;
 }
 
 pub struct DownStreamConn<'a>{
@@ -21,6 +21,13 @@ impl<'a> DownStreamConn<'a>{
         tx: &'a Sender<Vec<u8>>
     ) -> Result<Self> {
         tracing::debug!("new downstream connection");
+        tokio::select! {
+            _ = async {
+                target.listen(tx).await?;
+                Ok::<(), ProxyError>(())
+            }=> {tracing::warn!("downsream listener stopped");},
+            _ = tx.closed() => {tracing::warn!("downstream channel closed");}
+        }
         target.listen(tx).await?;
         Ok(Self { target, stream })
     }
@@ -28,7 +35,7 @@ impl<'a> DownStreamConn<'a>{
 
 
 #[async_trait]
-impl ListenDownstream for Route{
+impl<'a> ListenDownstream<'a> for Route{
     async fn serve(&self) -> Result<()> {
         let listener = TcpListener::bind(&format!("0.0.0.0:{}", &self.listen)).await?;
         loop{
@@ -41,7 +48,7 @@ impl ListenDownstream for Route{
         }
     }
 
-    async fn handle(&self, conn: &'async_trait mut DownStreamConn) -> Result<()>{
+    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()>{
         let mut buffer = vec![1;1024];
         let (mut reader, mut writer) = split(&mut conn.stream);
         tokio::select! {
