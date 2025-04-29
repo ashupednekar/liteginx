@@ -1,24 +1,34 @@
+use crate::{
+    pkg::{
+        server::upstream::ListenUpsteram,
+        spec::routes::{Route, UpstreamTarget},
+    },
+    prelude::{ProxyError, Result},
+};
 use async_trait::async_trait;
-use tokio::{io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::broadcast::Sender};
-use crate::{pkg::{server::upstream::ListenUpsteram, spec::routes::{Route, UpstreamTarget}}, prelude::{ProxyError, Result}};
 use rand::seq::IndexedRandom;
+use tokio::{
+    io::{split, AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    sync::broadcast::Sender,
+};
 
 #[async_trait]
-pub trait ListenDownstream<'a>{
+pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
     async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()>;
 }
 
-pub struct DownStreamConn<'a>{
+pub struct DownStreamConn<'a> {
     pub target: &'a UpstreamTarget,
-    pub stream: &'a mut TcpStream
+    pub stream: &'a mut TcpStream,
 }
 
-impl<'a> DownStreamConn<'a>{
+impl<'a> DownStreamConn<'a> {
     pub async fn new(
         stream: &'a mut TcpStream,
         target: &'a UpstreamTarget,
-        tx: &'a Sender<Vec<u8>>
+        tx: &'a Sender<Vec<u8>>,
     ) -> Result<Self> {
         tracing::debug!("new downstream connection");
         tokio::select! {
@@ -33,14 +43,13 @@ impl<'a> DownStreamConn<'a>{
     }
 }
 
-
 #[async_trait]
-impl<'a> ListenDownstream<'a> for Route{
+impl<'a> ListenDownstream<'a> for Route {
     async fn serve(&self) -> Result<()> {
         let listener = TcpListener::bind(&format!("0.0.0.0:{}", &self.listen)).await?;
-        loop{
+        loop {
             let (mut stream, _) = listener.accept().await?;
-            let target = self.targets.choose(&mut rand::rng()).ok_or_else(||{
+            let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
                 return ProxyError::DownStreamServerEmptyTargets;
             })?;
             let mut conn = DownStreamConn::new(&mut stream, &target, &self.tx).await?;
@@ -48,8 +57,8 @@ impl<'a> ListenDownstream<'a> for Route{
         }
     }
 
-    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()>{
-        let mut buffer = vec![1;1024];
+    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()> {
+        let mut buffer = vec![1; 1024];
         let (mut reader, mut writer) = split(&mut conn.stream);
         tokio::select! {
             r = async{
@@ -78,7 +87,7 @@ impl<'a> ListenDownstream<'a> for Route{
                 tracing::debug!("downstream listener closed");
             },
             _ = tokio::signal::ctrl_c() => {}
-        } 
+        }
         Ok(())
     }
 }

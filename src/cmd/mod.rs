@@ -17,7 +17,7 @@ pub async fn run() -> Result<()> {
     let args = Cmd::parse();
     match args.command {
         Some(SubCommandType::Listen) => {
-            listen().await?; 
+            listen().await?;
         }
         None => {
             tracing::error!("no subcommand passed");

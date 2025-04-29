@@ -16,5 +16,5 @@ pub enum ProxyError {
     #[error("io error")]
     IoError(#[from] std::io::Error),
     #[error("error writing to channel")]
-    ChannelWriteError(#[from] broadcast::error::SendError<Vec<u8>>)
+    ChannelWriteError(#[from] broadcast::error::SendError<Vec<u8>>),
 }

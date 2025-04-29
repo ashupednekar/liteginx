@@ -1,17 +1,24 @@
+use crate::{
+    pkg::spec::routes::UpstreamTarget,
+    prelude::{ProxyError, Result},
+};
 use async_trait::async_trait;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream, sync::broadcast::Sender};
-use crate::{pkg::spec::routes::UpstreamTarget, prelude::{ProxyError, Result}};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    sync::broadcast::Sender,
+};
 
 #[async_trait]
-pub trait ListenUpsteram{
-    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()>; 
+pub trait ListenUpsteram {
+    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()>;
 }
 
 #[async_trait]
-impl ListenUpsteram for UpstreamTarget{
-    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()>{
+impl ListenUpsteram for UpstreamTarget {
+    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()> {
         //TODO: plan reconnects
-        match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await{
+        match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await {
             Ok(mut stream) => {
                 tracing::info!("connected to upstream target");
                 let mut buffer = vec![0; 1024];
@@ -43,7 +50,7 @@ impl ListenUpsteram for UpstreamTarget{
                     } => {tracing::warn!("upstream listener closed");},
                     _ = tokio::signal::ctrl_c() => {}
                 }
-            },
+            }
             Err(_e) => {
                 return Err(ProxyError::UpstreamConnectionRefused);
             }
