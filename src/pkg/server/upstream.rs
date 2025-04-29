@@ -33,14 +33,15 @@ impl ListenUpsteram for UpstreamTarget{
                             }
                         }
                         Ok::<(), ProxyError>(())
-                    } => {},
+                    } => {tracing::warn!("upstream reader closed");},
                     _ = async {
                         let mut rx = self.tx.subscribe();
                         while let Ok(msg) = rx.recv().await{
                             send.write_all(&msg).await?;
                         }
                         Ok::<(), ProxyError>(())
-                    } => {}
+                    } => {tracing::warn!("upstream listener closed");},
+                    _ = tokio::signal::ctrl_c() => {}
                 }
             },
             Err(_e) => {

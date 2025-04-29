@@ -10,18 +10,16 @@ pub trait ListenDownstream{
 }
 
 pub struct DownStreamConn<'a>{
-    pub target: UpstreamTarget,
+    pub target: &'a UpstreamTarget,
     pub stream: &'a mut TcpStream
 }
 
 impl<'a> DownStreamConn<'a>{
-    pub fn new(stream: &'a mut TcpStream, targets: Vec<UpstreamTarget>) -> Result<Self> {
-        let target = match targets.choose(&mut rand::rng()) {
-            Some(t) => t.clone(),
-            None => {
-                return Err(ProxyError::DownStreamServerEmptyTargets);
-            }
-        };
+    pub fn new(
+        stream: &'a mut TcpStream,
+        target: &'a UpstreamTarget
+    ) -> Result<Self> {
+        tracing::debug!("new downstream connection");
         Ok(Self { target, stream })
     }
 }
@@ -33,7 +31,10 @@ impl ListenDownstream for Route{
         let listener = TcpListener::bind(&format!("0.0.0.0:{}", &self.listen)).await?;
         loop{
             let (mut stream, _) = listener.accept().await?;
-            let mut conn = DownStreamConn::new(&mut stream, self.targets.clone())?;
+            let target = self.targets.choose(&mut rand::rng()).ok_or_else(||{
+                return ProxyError::DownStreamServerEmptyTargets;
+            })?;
+            let mut conn = DownStreamConn::new(&mut stream, &target)?;
             self.handle(&mut conn).await?;
         }
     }
@@ -42,18 +43,21 @@ impl ListenDownstream for Route{
         let mut buffer = vec![1;1024];
         let (mut reader, mut writer) = split(&mut conn.stream);
         tokio::select! {
-            _ = async{
+            r = async{
                 loop{
                     let n = reader.read(&mut buffer).await?;
                     if n == 0 {
                         break;
                     }
                     let body = buffer[..n].to_vec();
+                    tracing::debug!("channel: {:?}", &conn.target.tx);
                     conn.target.tx.send(body)?;
                     tracing::info!("received downstream message from client, sent to upstream target");
                 }
                 Ok::<(), ProxyError>(())
-            } => {},
+            } => {
+                tracing::debug!("downstream reader closed: {:?}", &r);
+            },
             _ = async{
                 let mut rx = self.tx.subscribe();
                 while let Ok(msg) = rx.recv().await{
@@ -61,7 +65,10 @@ impl ListenDownstream for Route{
                     tracing::info!("received upstream message from target, sent downstream");
                 }
                 Ok::<(), ProxyError>(())
-            } => {}
+            } => {
+                tracing::debug!("downstream listener closed");
+            },
+            _ = tokio::signal::ctrl_c() => {}
         } 
         Ok(())
     }
