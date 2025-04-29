@@ -4,12 +4,12 @@ use crate::{pkg::spec::routes::UpstreamTarget, prelude::{ProxyError, Result}};
 
 #[async_trait]
 pub trait ListenUpsteram{
-    async fn listen(&self, downstream_tx: Sender<Vec<u8>>) -> Result<()>; 
+    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()>; 
 }
 
 #[async_trait]
 impl ListenUpsteram for UpstreamTarget{
-    async fn listen(&self, downstream_tx: Sender<Vec<u8>>) -> Result<()>{
+    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>) -> Result<()>{
         //TODO: plan reconnects
         match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await{
             Ok(mut stream) => {

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use tokio::{io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}};
-use crate::{pkg::spec::routes::{Route, UpstreamTarget}, prelude::{ProxyError, Result}};
+use tokio::{io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::broadcast::Sender};
+use crate::{pkg::{server::upstream::ListenUpsteram, spec::routes::{Route, UpstreamTarget}}, prelude::{ProxyError, Result}};
 use rand::seq::IndexedRandom;
 
 #[async_trait]
@@ -15,11 +15,13 @@ pub struct DownStreamConn<'a>{
 }
 
 impl<'a> DownStreamConn<'a>{
-    pub fn new(
+    pub async fn new(
         stream: &'a mut TcpStream,
-        target: &'a UpstreamTarget
+        target: &'a UpstreamTarget,
+        tx: &'a Sender<Vec<u8>>
     ) -> Result<Self> {
         tracing::debug!("new downstream connection");
+        target.listen(tx).await?;
         Ok(Self { target, stream })
     }
 }
@@ -34,7 +36,7 @@ impl ListenDownstream for Route{
             let target = self.targets.choose(&mut rand::rng()).ok_or_else(||{
                 return ProxyError::DownStreamServerEmptyTargets;
             })?;
-            let mut conn = DownStreamConn::new(&mut stream, &target)?;
+            let mut conn = DownStreamConn::new(&mut stream, &target, &self.tx).await?;
             self.handle(&mut conn).await?;
         }
     }
