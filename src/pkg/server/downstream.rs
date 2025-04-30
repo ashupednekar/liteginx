@@ -1,3 +1,5 @@
+use std::sync::mpsc;
+
 use crate::{
     pkg::{
         server::upstream::ListenUpsteram,
@@ -8,8 +10,7 @@ use crate::{
 use async_trait::async_trait;
 use rand::seq::IndexedRandom;
 use tokio::{
-    io::{split, AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream}, task::JoinSet,
+    io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::oneshot, task::JoinSet
 };
 
 #[async_trait]
@@ -23,14 +24,13 @@ pub trait ListenDownstream<'a> {
 impl<'a> ListenDownstream<'a> for Route {
     async fn serve(&self) -> Result<()> {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
-        let tx = self.tx.clone();
         let upstream_set = self.targets.iter().cloned().fold(JoinSet::new(), |mut set, target| {
-            let tx = tx.clone(); // OK because `Arc` or `Sender` is cheap to clone
+            let tx = self.tx.clone(); 
             set.spawn(async move {
                 target.listen(&tx).await
             });
             set
-        });
+        }); 
         tokio::select! {
             _ = async {
                 loop {

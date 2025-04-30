@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, oneshot};
 
 pub type Result<T> = core::result::Result<T, ProxyError>;
 
@@ -15,6 +15,8 @@ pub enum ProxyError {
     DownstreamMessageError,
     #[error("io error")]
     IoError(#[from] std::io::Error),
+    #[error("invalid time format error")]
+    DurationError(#[from] humantime::DurationError),
     #[error("error writing to channel")]
     ChannelWriteError(#[from] broadcast::error::SendError<Vec<u8>>),
 }

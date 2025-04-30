@@ -1,12 +1,13 @@
 use crate::{
-    pkg::spec::routes::UpstreamTarget,
+    pkg::{conf::settings, spec::routes::UpstreamTarget},
     prelude::{ProxyError, Result},
 };
 use async_trait::async_trait;
+use humantime::parse_duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::broadcast::Sender,
+    sync::broadcast::Sender, time::interval,
 };
 
 #[async_trait]
@@ -47,7 +48,7 @@ impl ListenUpsteram for UpstreamTarget {
                             send.write_all(&msg).await?;
                         }
                         Ok::<(), ProxyError>(())
-                    } => {tracing::warn!("upstream listener closed");},
+                    } => {tracing::warn!("upstream connection closed");},
                     _ = tokio::signal::ctrl_c() => {}
                 }
             }
@@ -55,6 +56,9 @@ impl ListenUpsteram for UpstreamTarget {
                 return Err(ProxyError::UpstreamConnectionRefused);
             }
         }
+        interval(parse_duration(&settings.upstream_reconnect_heartbeat)?).tick().await;
+        tracing::info!("reconnecting upstream");
+        self.listen(&downstream_tx).await?;
         Ok(())
     }
 }
