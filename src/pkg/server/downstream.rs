@@ -9,57 +9,52 @@ use async_trait::async_trait;
 use rand::seq::IndexedRandom;
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
-    sync::broadcast::Sender,
+    net::{TcpListener, TcpStream}, task::JoinSet,
 };
 
 #[async_trait]
 pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
-    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()>;
+    async fn handle(&self, stream: &'a mut TcpStream, target: &'a UpstreamTarget) -> Result<()>; 
 }
 
-pub struct DownStreamConn<'a> {
-    pub target: &'a UpstreamTarget,
-    pub stream: &'a mut TcpStream,
-}
-
-impl<'a> DownStreamConn<'a> {
-    pub async fn new(
-        stream: &'a mut TcpStream,
-        target: &'a UpstreamTarget,
-        tx: &'a Sender<Vec<u8>>,
-    ) -> Result<Self> {
-        tracing::debug!("new downstream connection");
-        tokio::select! {
-            _ = async {
-                target.listen(tx).await?;
-                Ok::<(), ProxyError>(())
-            }=> {tracing::warn!("downsream listener stopped");},
-            _ = tx.closed() => {tracing::warn!("downstream channel closed");}
-        }
-        target.listen(tx).await?;
-        Ok(Self { target, stream })
-    }
-}
-
+#[allow(unreachable_code)] // for ? prop in tcp loop
 #[async_trait]
 impl<'a> ListenDownstream<'a> for Route {
     async fn serve(&self) -> Result<()> {
-        let listener = TcpListener::bind(&format!("0.0.0.0:{}", &self.listen)).await?;
-        loop {
-            let (mut stream, _) = listener.accept().await?;
-            let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
-                return ProxyError::DownStreamServerEmptyTargets;
-            })?;
-            let mut conn = DownStreamConn::new(&mut stream, &target, &self.tx).await?;
-            self.handle(&mut conn).await?;
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
+        let tx = self.tx.clone();
+        let upstream_set = self.targets.iter().cloned().fold(JoinSet::new(), |mut set, target| {
+            let tx = tx.clone(); // OK because `Arc` or `Sender` is cheap to clone
+            set.spawn(async move {
+                target.listen(&tx).await
+            });
+            set
+        });
+        tokio::select! {
+            _ = async {
+                loop {
+                    let (mut stream, _) = listener.accept().await?;
+                    let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
+                        return ProxyError::DownStreamServerEmptyTargets;
+                    })?;
+                    self.handle(&mut stream, &target).await?;
+                }
+                Ok::<(), ProxyError>(())
+            } => {
+                tracing::warn!("downsteam server ended");
+            },
+            _ = upstream_set.join_all() => {
+                tracing::warn!("upstream clients ended");
+            }
         }
+        Ok(())
     }
+        
 
-    async fn handle(&self, conn: &'a mut DownStreamConn) -> Result<()> {
+    async fn handle(&self, mut stream: &'a mut TcpStream, target: &'a UpstreamTarget) -> Result<()> {
         let mut buffer = vec![1; 1024];
-        let (mut reader, mut writer) = split(&mut conn.stream);
+        let (mut reader, mut writer) = split(&mut stream);
         tokio::select! {
             r = async{
                 loop{
@@ -68,8 +63,7 @@ impl<'a> ListenDownstream<'a> for Route {
                         break;
                     }
                     let body = buffer[..n].to_vec();
-                    tracing::debug!("channel: {:?}", &conn.target.tx);
-                    conn.target.tx.send(body)?;
+                    target.tx.send(body)?;
                     tracing::info!("received downstream message from client, sent to upstream target");
                 }
                 Ok::<(), ProxyError>(())
