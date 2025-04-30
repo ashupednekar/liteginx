@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     pkg::{
         server::upstream::ListenUpsteram,
@@ -10,40 +8,44 @@ use crate::{
 use async_trait::async_trait;
 use rand::seq::IndexedRandom;
 use tokio::{
-    io::{split, AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::{broadcast::Sender, oneshot}, task::JoinSet
+    io::{split, AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    sync::{broadcast::Sender, oneshot},
+    task::JoinSet,
 };
 
 #[async_trait]
 pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
-    //async fn handle(&self, stream: &'a mut TcpStream, target: &'a UpstreamTarget, quit: oneshot::Receiver<()>) -> Result<()>; 
+    //async fn handle(&self, stream: &'a mut TcpStream, target: &'a UpstreamTarget, quit: oneshot::Receiver<()>) -> Result<()>;
 }
 
 #[allow(unreachable_code)] // for ? prop in tcp loop
 #[async_trait]
 impl<'a> ListenDownstream<'a> for Route {
     async fn serve(&self) -> Result<()> {
-        let ln = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
-        let listener = Arc::new(ln);
-        let upstream_set = self.targets.iter().cloned().fold(JoinSet::new(), |mut set, target| {
-            let tx = self.tx.clone(); 
-            set.spawn(async move {
-                target.listen(&tx).await
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
+        let upstream_set = self
+            .targets
+            .iter()
+            .cloned()
+            .fold(JoinSet::new(), |mut set, target| {
+                let tx = self.tx.clone();
+                set.spawn(async move { target.listen(&tx).await });
+                set
             });
-            set
-        }); 
         tokio::select! {
             _ = async {
                 loop {
-                    let (quit_tx, quit_rx) = oneshot::channel::<()>();
+                    let (_quit_tx, quit_rx) = oneshot::channel::<()>();
+                    let (mut stream, _) = listener.accept().await?;
                     let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
                         return ProxyError::DownStreamServerEmptyTargets;
                     })?;
-                    let tx = Arc::new(self.tx.clone());
-                    let listener = Arc::clone(&listener);
+                    let target = target.clone();
+                    let tx = self.tx.clone();
                     tokio::spawn(async move{
-                        let (mut stream, _) = listener.accept().await?;
-                        handle(&mut stream, target, tx, quit_rx).await?;
+                        handle(&mut stream, &target, &tx, quit_rx).await?;
                         Ok::<(), ProxyError>(())
                     });
                 }
@@ -60,12 +62,15 @@ impl<'a> ListenDownstream<'a> for Route {
         }
         Ok(())
     }
-        
-
 }
 
 
-async fn handle<'a>(mut stream: &'a mut TcpStream, target: &'a UpstreamTarget, tx: Arc<Sender<Vec<u8>>>, quit: oneshot::Receiver<()>) -> Result<()> {
+async fn handle<'a>(
+    mut stream: &'a mut TcpStream,
+    target: &'a UpstreamTarget,
+    tx: &'a Sender<Vec<u8>>,
+    quit: oneshot::Receiver<()>,
+) -> Result<()> {
     let mut buffer = vec![1; 1024];
     let (mut reader, mut writer) = split(&mut stream);
     tokio::select! {
@@ -93,10 +98,9 @@ async fn handle<'a>(mut stream: &'a mut TcpStream, target: &'a UpstreamTarget, t
         } => {
             tracing::debug!("downstream listener closed");
         },
-        _ = quit => {
-            tracing::info!("closing handler");
-        }
+        //_ = quit => {
+        //    tracing::info!("closing handler");
+        //}
     }
     Ok(())
 }
-
