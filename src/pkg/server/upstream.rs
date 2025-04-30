@@ -7,7 +7,8 @@ use humantime::parse_duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::broadcast::Sender, time::interval,
+    sync::broadcast::Sender,
+    time::interval,
 };
 
 #[async_trait]
@@ -56,7 +57,7 @@ impl ListenUpsteram for UpstreamTarget {
                 return Err(ProxyError::UpstreamConnectionRefused);
             }
         }
-        interval(parse_duration(&settings.upstream_reconnect_heartbeat)?).tick().await;
+        tokio::time::sleep(parse_duration(&settings.upstream_reconnect_heartbeat)?).await;
         tracing::info!("reconnecting upstream");
         self.listen(&downstream_tx).await?;
         Ok(())

@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer};
 #[derive(Deserialize)]
 pub struct Settings {
     pub liteginx_conf_dir: String,
-    pub upstream_reconnect_heartbeat: String 
+    pub upstream_reconnect_heartbeat: String,
 }
 
 impl Settings {
