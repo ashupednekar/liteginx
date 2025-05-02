@@ -3,7 +3,7 @@ spec:
   - kind: http
     path: /two
     rewrite: /
-    listen: 80
+    listen: 5000 
     targets:
     - host: localhost
       port: 3000

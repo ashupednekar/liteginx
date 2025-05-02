@@ -2,6 +2,7 @@ use matchit::Router;
 use serde::Deserialize;
 use tokio::sync::broadcast::{self, Sender};
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct Endpoint {
     pub path: String,

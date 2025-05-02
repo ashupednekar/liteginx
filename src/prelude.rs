@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::broadcast;
 
 pub type Result<T> = core::result::Result<T, ProxyError>;
 
@@ -10,7 +10,7 @@ pub enum ProxyError {
     #[error("empty targets, cannot start downstream server")]
     DownStreamServerEmptyTargets,
     #[error("error connecting to upstream target")]
-    UpstreamConnectionRefused,
+    UpstreamConnectionRefused(String),
     #[error("error sending message downstream")]
     DownstreamMessageError,
     #[error("upstream connection closed")]

@@ -19,11 +19,14 @@ pub struct IngressSpec {
     pub targets: Vec<UpstreamTarget>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct TlsConf {
     pub enabled: bool,
 }
 
+
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct IngressConf {
     pub name: String,

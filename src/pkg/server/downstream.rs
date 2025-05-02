@@ -52,8 +52,9 @@ impl<'a> ListenDownstream<'a> for Route {
     }
 
     async fn serve(&self) -> Result<()> {
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
         if let Err(e) = async{
+            let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
+            tracing::debug!("bound to port: {}", &self.listen);
             tokio::select! {
                 _ = async {
                     loop {
@@ -82,7 +83,7 @@ impl<'a> ListenDownstream<'a> for Route {
             }
             Ok::<(), ProxyError>(())
         }.await{
-            tracing::error!("{}", &e);
+            tracing::error!("{:?}", &e);
             self.retry().await?;
         }
         Ok(())

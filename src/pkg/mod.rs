@@ -20,6 +20,7 @@ pub async fn listen() -> Result<()> {
         });
         set
     });
+    tracing::debug!("spawning set: {:?}", &set);
     tokio::select! {
         _ = set.join_all() => {},
         _ = tokio::signal::ctrl_c() => {}

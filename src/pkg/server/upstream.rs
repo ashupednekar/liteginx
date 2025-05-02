@@ -74,15 +74,15 @@ impl ListenUpstream for UpstreamTarget {
                         _ = tokio::signal::ctrl_c() => {}
                     }
                 }
-                Err(_e) => {
-                    return Err(ProxyError::UpstreamConnectionRefused);
+                Err(e) => {
+                    return Err(ProxyError::UpstreamConnectionRefused(format!("{}", &e)));
                 }
             }
             Ok::<(), ProxyError>(())
         }
         .await
         {
-            tracing::error!("{}", &e);
+            tracing::error!("{:?}", &e);
             self.retry(downstream_tx, retry_attempt).await?;
         };
         Ok(())

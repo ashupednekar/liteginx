@@ -2,7 +2,7 @@ name: one-ingress
 spec:
   - kind: http
     path: /one
-    listen: 80
+    listen: 5000
     targets:
     - host: localhost
       port: 3000
