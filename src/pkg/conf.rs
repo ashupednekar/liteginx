@@ -5,6 +5,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct Settings {
     pub liteginx_conf_dir: String,
+    pub not_found_message: Option<String>,
     pub upstream_reconnect_heartbeat: Option<String>,
     pub upstream_reconnect_max_retries: Option<u32>,
 }

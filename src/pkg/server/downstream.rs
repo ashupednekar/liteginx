@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use humantime::parse_duration;
 use matchit::Router;
 use rand::seq::IndexedRandom;
+use serde_json::json;
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -110,11 +111,22 @@ async fn handle<'a>(
                 if n == 0 {
                     break;
                 }
-                let body = buffer[..n].to_vec();
+                let mut body = buffer[..n].to_vec();
                 if let Some(ref router) = endpoints{
-
+                    let path = extract_path(&body);
+                    match match_prefix(&router, &path){
+                        Some(endpoint) => {
+                            if let Some(ref rewrite) = endpoint.rewrite{
+                                body = replace_bytes(&body, path.into(), rewrite.as_str().into());
+                            }
+                            target.tx.send(body)?;
+                        },
+                        None => {
+                            tracing::warn!("path {} not found", &path);
+                            tx.send(http_404_response()?.into())?;
+                        }
+                    }
                 }
-                target.tx.send(body)?;
                 tracing::debug!("received downstream message from client, sent to upstream target");
             }
             Err::<(), ProxyError>(ProxyError::DownStreamEndOfBytes)
@@ -151,14 +163,46 @@ pub fn extract_path(body: &[u8]) -> &str {
     ""
 }
 
-fn replace_bytes(data: Vec<u8>, search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8> {
+fn match_prefix<'a>(router: &'a Router<Endpoint>, path: &str) -> Option<&'a Endpoint> {
+    let mut parts: Vec<&str> = path.trim_end_matches('/').split('/').collect();
+
+    while !parts.is_empty() {
+        let try_path = format!("/{}", parts.join("/"));
+        if let Ok(m) = router.at(&try_path) {
+            return Some(m.value);
+        }
+        parts.pop();
+    }
+    None
+}
+
+
+
+fn replace_bytes(data: &[u8], search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8> {
     data.windows(search.len())
         .enumerate()
         .find(|(_, window)| *window == search)
         .map(|(i, _)| {
-            let mut new_data = data.clone();
+            let mut new_data = data.to_vec(); 
             new_data.splice(i..i + search.len(), replacement.iter().copied());
             new_data
         })
-        .unwrap_or(data)
+        .unwrap_or_else(|| data.to_vec()) 
 }
+
+pub fn http_404_response() -> Result<String> {
+    let body = serde_json::to_string(&json!({
+        "detail": &settings.not_found_message.clone().unwrap_or("not found".into())
+    }))?;
+    let content_length = body.len();
+    Ok(format!(
+        "HTTP/1.1 404 Not Found\r\n\
+        Content-Type: application/json\r\n\
+        Content-Length: {}\r\n\
+        Connection: close\r\n\
+        \r\n\
+        {}",
+        content_length, body
+    ))
+}
+

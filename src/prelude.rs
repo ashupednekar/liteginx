@@ -27,6 +27,8 @@ pub enum ProxyError {
     UpStreamEndOfBytes,
     #[error("io error")]
     IoError(#[from] std::io::Error),
+    #[error("json decode error")]
+    JSONDecodeError(#[from] serde_json::Error),
     #[error("invalid time format error")]
     DurationError(#[from] humantime::DurationError),
     #[error("error writing to channel")]
