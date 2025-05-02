@@ -2,12 +2,13 @@ use crate::{
     pkg::{
         conf::settings,
         server::upstream::ListenUpstream,
-        spec::routes::{Route, UpstreamTarget},
+        spec::routes::{Endpoint, Route, UpstreamTarget},
     },
     prelude::{ProxyError, Result},
 };
 use async_trait::async_trait;
 use humantime::parse_duration;
+use matchit::Router;
 use rand::seq::IndexedRandom;
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt},
@@ -64,9 +65,10 @@ impl<'a> ListenDownstream<'a> for Route {
                             return ProxyError::DownStreamServerEmptyTargets;
                         })?;
                         let target = target.clone();
+                        let endpoints = self.endpoints.clone();
                         let tx = self.tx.clone();
                         tokio::spawn(async move{
-                            handle(&mut stream, &target, &tx, quit_rx).await
+                            handle(endpoints, &mut stream, &target, &tx, quit_rx).await
                         });
                     }
                     Err::<(), ProxyError>(ProxyError::DownStreamServerEnded)
@@ -91,6 +93,7 @@ impl<'a> ListenDownstream<'a> for Route {
 }
 
 async fn handle<'a>(
+    endpoints: Option<Router<Endpoint>>,
     mut stream: &'a mut TcpStream,
     target: &'a UpstreamTarget,
     tx: &'a Sender<Vec<u8>>,
@@ -106,6 +109,9 @@ async fn handle<'a>(
                     break;
                 }
                 let body = buffer[..n].to_vec();
+                if let Some(ref router) = endpoints{
+
+                }
                 target.tx.send(body)?;
                 tracing::debug!("received downstream message from client, sent to upstream target");
             }

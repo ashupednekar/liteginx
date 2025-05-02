@@ -21,7 +21,7 @@ impl IngressConf {
 
 impl Route {
     pub fn new(configs: Vec<IngressConf>) -> Result<Vec<Arc<Route>>> {
-        let paths: HashMap<u16, (Router<Endpoint>, Vec<UpstreamTarget>)> = configs
+        let paths: HashMap<u16, (Option<Router<Endpoint>>, Vec<UpstreamTarget>)> = configs
             .iter()
             .flat_map(|conf| {
                 tracing::debug!("loading conf: {:?}", &conf.name);
@@ -31,19 +31,20 @@ impl Route {
                 tracing::debug!("adding listener spec: {:?}", &spec);
                 let entry = paths
                     .entry(spec.listen)
-                    .or_insert_with(|| (Router::new(), spec.targets.clone()));
+                    .or_insert_with(|| (None, spec.targets.clone()));
                 if let Kind::Http = spec.kind {
+                    let router = entry.0.get_or_insert_with(Router::new);
                     let path = spec
                         .path
                         .clone()
                         .expect("http spec missing mandatory field path".into());
-                    if entry.0.at(&path).is_ok() {
+                    if router.at(&path).is_ok() {
                         tracing::warn!("{} conflicts with existing endpoint", &path);
                         return paths;
                     }
                     
                     let rewrite = spec.rewrite.clone();
-                    if let Err(err) = entry.0.insert(path.clone(), Endpoint { path, rewrite }) {
+                    if let Err(err) = router.insert(path.clone(), Endpoint { path, rewrite }) {
                         tracing::error!("Failed to insert: {}", err);
                         return paths;
                     }

@@ -3,7 +3,7 @@ use serde::Deserialize;
 use tokio::sync::broadcast::{self, Sender};
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Endpoint {
     pub path: String,
     pub rewrite: Option<String>,
@@ -57,7 +57,7 @@ impl PartialEq for UpstreamTarget {
 #[derive(Debug)]
 pub struct Route {
     pub listen: u16,
-    pub endpoints: Router<Endpoint>,
+    pub endpoints: Option<Router<Endpoint>>,
     pub targets: Vec<UpstreamTarget>,
     pub tx: Sender<Vec<u8>>,
 }
@@ -65,10 +65,9 @@ pub struct Route {
 impl Default for Route {
     fn default() -> Self {
         let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-        let router: Router<Endpoint> = Router::new();
         Route {
             listen: 0,
-            endpoints: router,
+            endpoints: None,
             targets: vec![],
             tx,
         }
