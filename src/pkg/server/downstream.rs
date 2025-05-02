@@ -1,11 +1,13 @@
 use crate::{
     pkg::{
-        server::upstream::ListenUpsteram,
+        conf::settings,
+        server::upstream::ListenUpstream,
         spec::routes::{Route, UpstreamTarget},
     },
     prelude::{ProxyError, Result},
 };
 use async_trait::async_trait;
+use humantime::parse_duration;
 use rand::seq::IndexedRandom;
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt},
@@ -17,53 +19,75 @@ use tokio::{
 #[async_trait]
 pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
-    //async fn handle(&self, stream: &'a mut TcpStream, target: &'a UpstreamTarget, quit: oneshot::Receiver<()>) -> Result<()>;
+    async fn retry(&self) -> Result<()>;
+    async fn spawn_upstream(&self) -> Result<JoinSet<Result<()>>>;
 }
 
 #[allow(unreachable_code)] // for ? prop in tcp loop
 #[async_trait]
 impl<'a> ListenDownstream<'a> for Route {
-    async fn serve(&self) -> Result<()> {
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
-        let upstream_set = self
+    async fn spawn_upstream(&self) -> Result<JoinSet<Result<()>>> {
+        let set = self
             .targets
             .iter()
             .cloned()
             .fold(JoinSet::new(), |mut set, target| {
                 let tx = self.tx.clone();
-                set.spawn(async move { target.listen(&tx).await });
+                set.spawn(async move { target.listen(&tx, 0).await });
                 set
             });
-        tokio::select! {
-            _ = async {
-                loop {
-                    let (_quit_tx, quit_rx) = oneshot::channel::<()>();
-                    let (mut stream, _) = listener.accept().await?;
-                    let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
-                        return ProxyError::DownStreamServerEmptyTargets;
-                    })?;
-                    let target = target.clone();
-                    let tx = self.tx.clone();
-                    tokio::spawn(async move{
-                        handle(&mut stream, &target, &tx, quit_rx).await?;
-                        Ok::<(), ProxyError>(())
-                    });
+        Ok(set)
+    }
+
+    async fn retry(&self) -> Result<()> {
+        tokio::time::sleep(parse_duration(
+            &settings
+                .upstream_reconnect_heartbeat
+                .clone()
+                .unwrap_or("10s".into()),
+        )?)
+        .await;
+        self.serve().await?;
+        Ok(())
+    }
+
+    async fn serve(&self) -> Result<()> {
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
+        if let Err(e) = async{
+            tokio::select! {
+                _ = async {
+                    loop {
+                        let (_quit_tx, quit_rx) = oneshot::channel::<()>();
+                        let (mut stream, _) = listener.accept().await?;
+                        let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
+                            return ProxyError::DownStreamServerEmptyTargets;
+                        })?;
+                        let target = target.clone();
+                        let tx = self.tx.clone();
+                        tokio::spawn(async move{
+                            handle(&mut stream, &target, &tx, quit_rx).await
+                        });
+                    }
+                    Err::<(), ProxyError>(ProxyError::DownStreamServerEnded)
+                } => {
+                    tracing::warn!("downsteam server ended");
+                },
+                _ = async {
+                    self.spawn_upstream().await?.join_all().await;
+                    Err::<(), ProxyError>(ProxyError::UpstreamClientsEnded)
+                } => {},
+                _ = tokio::signal::ctrl_c() => {
+                    tracing::info!("received ctrl_c interrupt, quitting server")
                 }
-                Ok::<(), ProxyError>(())
-            } => {
-                tracing::warn!("downsteam server ended");
-            },
-            _ = upstream_set.join_all() => {
-                tracing::warn!("upstream clients ended");
-            },
-            _ = tokio::signal::ctrl_c() => {
-                tracing::info!("received ctrl_c interrupt, quitting server")
             }
+            Ok::<(), ProxyError>(())
+        }.await{
+            tracing::error!("{}", &e);
+            self.retry().await?;
         }
         Ok(())
     }
 }
-
 
 async fn handle<'a>(
     mut stream: &'a mut TcpStream,
@@ -84,7 +108,7 @@ async fn handle<'a>(
                 target.tx.send(body)?;
                 tracing::debug!("received downstream message from client, sent to upstream target");
             }
-            Ok::<(), ProxyError>(())
+            Err::<(), ProxyError>(ProxyError::DownStreamEndOfBytes)
         } => {
             tracing::debug!("downstream reader closed: {:?}", &r);
         },
@@ -94,7 +118,7 @@ async fn handle<'a>(
                 writer.write_all(&msg).await?;
                 tracing::debug!("received upstream message from target, sent downstream");
             }
-            Ok::<(), ProxyError>(())
+            Err::<(), ProxyError>(ProxyError::UpStreamEndOfBytes)
         } => {
             tracing::debug!("downstream listener closed");
         },

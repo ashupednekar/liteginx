@@ -13,6 +13,18 @@ pub enum ProxyError {
     UpstreamConnectionRefused,
     #[error("error sending message downstream")]
     DownstreamMessageError,
+    #[error("upstream connection closed")]
+    UpstreamConnectionClosed,
+    #[error("upstream reader closed")]
+    UpstreamReaderClosed,
+    #[error("upstream clients ended")]
+    UpstreamClientsEnded,
+    #[error("downstream server ended")]
+    DownStreamServerEnded,
+    #[error("end of bytes received from downstream")]
+    DownStreamEndOfBytes,
+    #[error("end of bytes received from upstream")]
+    UpStreamEndOfBytes,
     #[error("io error")]
     IoError(#[from] std::io::Error),
     #[error("invalid time format error")]

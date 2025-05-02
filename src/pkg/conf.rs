@@ -1,14 +1,12 @@
-use std::time::Duration;
-
 use config::{Config, ConfigError, Environment};
-use humantime::parse_duration;
 use lazy_static::lazy_static;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Settings {
     pub liteginx_conf_dir: String,
-    pub upstream_reconnect_heartbeat: String,
+    pub upstream_reconnect_heartbeat: Option<String>,
+    pub upstream_reconnect_max_retries: Option<u32>,
 }
 
 impl Settings {
