@@ -19,8 +19,7 @@ pub trait ListenUpstream {
 #[async_trait]
 impl ListenUpstream for UpstreamTarget {
     async fn retry(&self, downstream_tx: &Sender<Vec<u8>>, mut retry_attempt: u32) -> Result<()> {
-        if retry_attempt < settings.upstream_reconnect_max_retries.unwrap_or(10)
-        {
+        if retry_attempt < settings.upstream_reconnect_max_retries.unwrap_or(10) {
             tokio::time::sleep(parse_duration(
                 &settings
                     .upstream_reconnect_heartbeat

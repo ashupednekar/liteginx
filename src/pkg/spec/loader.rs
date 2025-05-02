@@ -42,7 +42,7 @@ impl Route {
                         tracing::warn!("{} conflicts with existing endpoint", &path);
                         return paths;
                     }
-                    
+
                     let rewrite = spec.rewrite.clone();
                     if let Err(err) = router.insert(path.clone(), Endpoint { path, rewrite }) {
                         tracing::error!("Failed to insert: {}", err);

@@ -25,7 +25,6 @@ pub struct TlsConf {
     pub enabled: bool,
 }
 
-
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct IngressConf {
