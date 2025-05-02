@@ -117,7 +117,9 @@ async fn handle<'a>(
                     match match_prefix(&router, &path){
                         Some(endpoint) => {
                             if let Some(ref rewrite) = endpoint.rewrite{
-                                body = replace_bytes(&body, path.into(), rewrite.as_str().into());
+                                let rewrite_from = format!("/{}", &path);
+                                tracing::info!("rewriting path: {:?} to {:?}", &rewrite_from, &rewrite);
+                                body = rewrite_path(&body, rewrite_from.into(), rewrite.as_str().into());
                             }
                             target.tx.send(body)?;
                         },
@@ -176,18 +178,16 @@ fn match_prefix<'a>(router: &'a Router<Endpoint>, path: &str) -> Option<&'a Endp
     None
 }
 
-
-
-fn replace_bytes(data: &[u8], search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8> {
+fn rewrite_path(data: &[u8], search: Vec<u8>, replacement: Vec<u8>) -> Vec<u8> {
     data.windows(search.len())
         .enumerate()
         .find(|(_, window)| *window == search)
         .map(|(i, _)| {
-            let mut new_data = data.to_vec(); 
+            let mut new_data = data.to_vec();
             new_data.splice(i..i + search.len(), replacement.iter().copied());
             new_data
         })
-        .unwrap_or_else(|| data.to_vec()) 
+        .unwrap_or_else(|| data.to_vec())
 }
 
 pub fn http_404_response() -> Result<String> {
@@ -205,4 +205,3 @@ pub fn http_404_response() -> Result<String> {
         content_length, body
     ))
 }
-
