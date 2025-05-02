@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
+use matchit::Router;
+
 use super::{
     config::{IngressConf, Kind},
     routes::{Endpoint, Route, UpstreamTarget},
@@ -19,7 +21,7 @@ impl IngressConf {
 
 impl Route {
     pub fn new(configs: Vec<IngressConf>) -> Result<Vec<Arc<Route>>> {
-        let paths: HashMap<u16, (Vec<Endpoint>, Vec<UpstreamTarget>)> = configs
+        let paths: HashMap<u16, (Router<Endpoint>, Vec<UpstreamTarget>)> = configs
             .iter()
             .flat_map(|conf| {
                 tracing::debug!("loading conf: {:?}", &conf.name);
@@ -29,18 +31,22 @@ impl Route {
                 tracing::debug!("adding listener spec: {:?}", &spec);
                 let entry = paths
                     .entry(spec.listen)
-                    .or_insert_with(|| (vec![], spec.targets.clone()));
+                    .or_insert_with(|| (Router::new(), spec.targets.clone()));
                 if let Kind::Http = spec.kind {
                     let path = spec
                         .path
                         .clone()
                         .expect("http spec missing mandatory field path".into());
-                    if entry.0.iter().any(|endpoint| endpoint.path == path) {
+                    if entry.0.at(&path).is_ok() {
                         tracing::warn!("{} conflicts with existing endpoint", &path);
                         return paths;
                     }
+                    
                     let rewrite = spec.rewrite.clone();
-                    entry.0.push(Endpoint { path, rewrite });
+                    if let Err(err) = entry.0.insert(path.clone(), Endpoint { path, rewrite }) {
+                        tracing::error!("Failed to insert: {}", err);
+                        return paths;
+                    }
                 }
                 spec.targets.iter().for_each(|target| {
                     if !entry.1.contains(target) {
