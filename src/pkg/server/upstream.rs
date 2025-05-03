@@ -49,11 +49,15 @@ impl ListenUpstream for UpstreamTarget {
                         _ = async {
                             loop {
                                 match recv.read(&mut buffer).await {
-                                    Ok(0) => break,
+                                    Ok(0) => {
+                                        //break
+                                        return Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
+                                    },
                                     Ok(n) => {
                                         if let Err(e) = downstream_tx.send(buffer[..n].to_vec()){
                                             tracing::error!("error sending msg: {}", e.to_string());
-                                            break;
+                                            //break;
+                                            return Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
                                         }
                                     }
                                     Err(_e) => {
@@ -61,7 +65,6 @@ impl ListenUpstream for UpstreamTarget {
                                     }
                                 }
                             }
-                            Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
                         } => {},
                         _ = async {
                             let mut rx = self.tx.subscribe();

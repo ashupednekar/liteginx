@@ -58,37 +58,36 @@ impl<'a> ListenDownstream<'a> for Route {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", self.listen)).await?;
             tracing::debug!("bound to port: {}", &self.listen);
             tokio::select! {
-                _ = async {
+                res = async {
                     loop {
                         let (_quit_tx, quit_rx) = oneshot::channel::<()>();
                         let (mut stream, _) = listener.accept().await?;
-                        let target = self.targets.choose(&mut rand::rng()).ok_or_else(|| {
-                            return ProxyError::DownStreamServerEmptyTargets;
-                        })?;
+                        let target = self.targets.choose(&mut rand::rng()).ok_or(ProxyError::DownStreamServerEmptyTargets)?;
                         let target = target.clone();
                         let endpoints = self.endpoints.clone();
                         let tx = self.tx.clone();
-                        tokio::spawn(async move{
-                            handle(endpoints, &mut stream, &target, &tx, quit_rx).await
+                        tokio::spawn(async move {
+                            if let Err(e) = handle(endpoints, &mut stream, &target, &tx, quit_rx).await {
+                                tracing::error!("handle error: {:?}", e);
+                            }
                         });
                     }
-                    Err::<(), ProxyError>(ProxyError::DownStreamServerEnded)
-                } => {
-                    tracing::warn!("downsteam server ended");
-                },
-                _ = async {
+                    #[allow(unreachable_code)]
+                    Ok::<(), ProxyError>(())
+                } => res,
+                res = async {
                     self.spawn_upstream().await?.join_all().await;
                     Err::<(), ProxyError>(ProxyError::UpstreamClientsEnded)
-                } => {},
+                } => res,
                 _ = tokio::signal::ctrl_c() => {
-                    tracing::info!("received ctrl_c interrupt, quitting server")
+                    tracing::info!("received ctrl_c interrupt, quitting server");
+                    Ok::<(), ProxyError>(())
                 }
             }
-            Ok::<(), ProxyError>(())
         }
         .await
         {
-            tracing::error!("{:?}", &e);
+            tracing::error!("serve error: {:?}", e);
             self.retry().await?;
         }
         Ok(())
