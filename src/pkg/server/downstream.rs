@@ -62,7 +62,8 @@ impl<'a> ListenDownstream<'a> for Route {
                     loop {
                         let (_quit_tx, quit_rx) = oneshot::channel::<()>();
                         let (mut stream, _) = listener.accept().await?;
-                        let target = self.targets.choose(&mut rand::rng()).ok_or(ProxyError::DownStreamServerEmptyTargets)?;
+                        let target = self.targets
+                            .choose(&mut rand::rng()).ok_or(ProxyError::DownStreamServerEmptyTargets)?;
                         let target = target.clone();
                         let endpoints = self.endpoints.clone();
                         let tx = self.tx.clone();
