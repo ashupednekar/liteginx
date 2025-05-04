@@ -1,7 +1,10 @@
 use crate::{
     pkg::{
         conf::settings,
-        server::{helpers::{extract_path, http_404_response, match_prefix, rewrite_path}, upstream::ListenUpstream},
+        server::{
+            helpers::{extract_path, http_404_response, match_prefix, rewrite_path},
+            upstream::ListenUpstream,
+        },
         spec::routes::{Endpoint, ReceiverCh, Route, SenderCh},
     },
     prelude::{ProxyError, Result},
@@ -21,20 +24,28 @@ use tokio::{
 pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
     async fn retry(&self) -> Result<()>;
-    async fn spawn_upstream(&self, client_tx: SenderCh, target_tx: ReceiverCh) -> Result<JoinSet<Result<()>>>;
+    async fn spawn_upstream(
+        &self,
+        client_tx: SenderCh,
+        target_tx: ReceiverCh,
+    ) -> Result<JoinSet<Result<()>>>;
 }
 
 #[async_trait]
 impl<'a> ListenDownstream<'a> for Route {
-    async fn spawn_upstream(&self, 
+    async fn spawn_upstream(
+        &self,
         client_tx: SenderCh,
-        target_rx: ReceiverCh
+        target_rx: ReceiverCh,
     ) -> Result<JoinSet<Result<()>>> {
         let mut set = JoinSet::new();
-        let target = self.targets.choose(&mut rand::rng()).ok_or(ProxyError::DownStreamServerEmptyTargets)?;
+        let target = self
+            .targets
+            .choose(&mut rand::rng())
+            .ok_or(ProxyError::DownStreamServerEmptyTargets)?;
         let target = target.clone();
         set.spawn(async move { target.listen(client_tx, target_rx, 0).await });
-        Ok(set) 
+        Ok(set)
     }
 
     async fn retry(&self) -> Result<()> {
@@ -60,9 +71,9 @@ impl<'a> ListenDownstream<'a> for Route {
                 let (target_tx, target_rx) = mpsc::channel::<Vec<u8>>(1);
                 let mut set = self.spawn_upstream(client_tx.clone(), target_rx).await?;
                 set.spawn(async move {
-                    handle(endpoints, &mut stream, target_tx, client_tx, client_rx).await 
+                    handle(endpoints, &mut stream, target_tx, client_tx, client_rx).await
                 });
-                tokio::spawn(async move{
+                tokio::spawn(async move {
                     set.join_all().await;
                 });
             }
@@ -83,7 +94,7 @@ async fn handle<'a>(
     mut stream: &'a mut TcpStream,
     target_tx: SenderCh,
     client_tx: SenderCh,
-    mut client_rx: ReceiverCh
+    mut client_rx: ReceiverCh,
 ) -> Result<()> {
     let mut buffer = vec![1; 1024];
     tracing::debug!("handling connection...");

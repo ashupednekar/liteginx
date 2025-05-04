@@ -1,5 +1,8 @@
 use crate::{
-    pkg::{conf::settings, spec::routes::{ReceiverCh, SenderCh, UpstreamTarget}},
+    pkg::{
+        conf::settings,
+        spec::routes::{ReceiverCh, SenderCh, UpstreamTarget},
+    },
     prelude::{ProxyError, Result},
 };
 use async_trait::async_trait;
@@ -11,13 +14,28 @@ use tokio::{
 
 #[async_trait]
 pub trait ListenUpstream {
-    async fn listen(&self, client_tx: SenderCh, target_rx: ReceiverCh, retry_attempt: u32) -> Result<()>; 
-    async fn retry(&self, client_tx: SenderCh, target_rx: ReceiverCh, retry_attempt: u32) -> Result<()>;
+    async fn listen(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()>;
+    async fn retry(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()>;
 }
 
 #[async_trait]
 impl ListenUpstream for UpstreamTarget {
-    async fn retry(&self, client_tx: SenderCh, target_rx: ReceiverCh, mut retry_attempt: u32) -> Result<()> {
+    async fn retry(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        mut retry_attempt: u32,
+    ) -> Result<()> {
         if retry_attempt < settings.upstream_reconnect_max_retries.unwrap_or(10) {
             tokio::time::sleep(parse_duration(
                 &settings
@@ -33,7 +51,12 @@ impl ListenUpstream for UpstreamTarget {
         Ok(())
     }
 
-    async fn listen(&self, client_tx: SenderCh, mut target_rx: ReceiverCh, retry_attempt: u32) -> Result<()> {
+    async fn listen(
+        &self,
+        client_tx: SenderCh,
+        mut target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()> {
         if let Err(e) = async {
             match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await {
                 Ok(mut stream) => {

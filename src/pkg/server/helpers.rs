@@ -1,9 +1,7 @@
 use matchit::Router;
 use serde_json::json;
 
-use crate::pkg::{conf::settings, Result, spec::routes::Endpoint};
-
-
+use crate::pkg::{conf::settings, spec::routes::Endpoint, Result};
 
 pub fn extract_path(body: &[u8]) -> &str {
     let mut lines = body.split(|&b| b == b'\r' || b == b'\n');

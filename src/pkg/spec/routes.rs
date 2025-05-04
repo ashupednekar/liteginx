@@ -30,4 +30,3 @@ pub struct Route {
 
 pub type SenderCh = Sender<Vec<u8>>;
 pub type ReceiverCh = Receiver<Vec<u8>>;
-
