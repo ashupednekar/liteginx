@@ -1,0 +1,9 @@
+name: tcptest-ingress
+spec:
+  - kind: tcp
+    listen: 4001 
+    targets: 
+     - host: localhost
+       port: 4000 
+tls:
+  enabled: false
