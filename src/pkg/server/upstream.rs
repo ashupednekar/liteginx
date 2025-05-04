@@ -49,6 +49,7 @@ impl ListenUpstream for UpstreamTarget {
                                         return Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
                                     },
                                     Ok(n) => {
+                                        tracing::warn!("rec count client tx: {}", &conn.client_tx.receiver_count());
                                         if let Err(e) = conn.client_tx.send(buffer[..n].to_vec()){
                                             tracing::error!("error sending msg: {}", e.to_string());
                                             //break;
