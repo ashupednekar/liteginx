@@ -1,6 +1,6 @@
 use matchit::Router;
 use serde::Deserialize;
-use tokio::sync::broadcast::{self, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
@@ -9,43 +9,10 @@ pub struct Endpoint {
     pub rewrite: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Deserialize, Default, Clone)]
 pub struct UpstreamTarget {
     pub host: String,
     pub port: u16,
-    pub tx: Sender<Vec<u8>>,
-}
-
-#[derive(Deserialize)]
-struct TargetAddr {
-    pub host: String,
-    pub port: u16,
-}
-
-impl<'de> Deserialize<'de> for UpstreamTarget {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let addr = TargetAddr::deserialize(deserializer)?;
-        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-        Ok(Self {
-            host: addr.host,
-            port: addr.port,
-            tx,
-        })
-    }
-}
-
-impl Default for UpstreamTarget {
-    fn default() -> Self {
-        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-        Self {
-            host: String::new(),
-            port: 0,
-            tx,
-        }
-    }
 }
 
 impl PartialEq for UpstreamTarget {
@@ -54,22 +21,12 @@ impl PartialEq for UpstreamTarget {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Route {
     pub listen: u16,
     pub endpoints: Option<Router<Endpoint>>,
     pub targets: Vec<UpstreamTarget>,
-    pub tx: Sender<Vec<u8>>,
 }
 
-impl Default for Route {
-    fn default() -> Self {
-        let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-        Route {
-            listen: 0,
-            endpoints: None,
-            targets: vec![],
-            tx,
-        }
-    }
-}
+pub type SenderCh = Sender<Vec<u8>>;
+pub type ReceiverCh = Receiver<Vec<u8>>;

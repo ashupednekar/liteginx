@@ -1,5 +1,8 @@
 use crate::{
-    pkg::{conf::settings, spec::routes::UpstreamTarget},
+    pkg::{
+        conf::settings,
+        spec::routes::{ReceiverCh, SenderCh, UpstreamTarget},
+    },
     prelude::{ProxyError, Result},
 };
 use async_trait::async_trait;
@@ -7,18 +10,32 @@ use humantime::parse_duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::broadcast::Sender,
 };
 
 #[async_trait]
 pub trait ListenUpstream {
-    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>, retry_count: u32) -> Result<()>;
-    async fn retry(&self, downstream_tx: &Sender<Vec<u8>>, retry_attempt: u32) -> Result<()>;
+    async fn listen(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()>;
+    async fn retry(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()>;
 }
 
 #[async_trait]
 impl ListenUpstream for UpstreamTarget {
-    async fn retry(&self, downstream_tx: &Sender<Vec<u8>>, mut retry_attempt: u32) -> Result<()> {
+    async fn retry(
+        &self,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh,
+        mut retry_attempt: u32,
+    ) -> Result<()> {
         if retry_attempt < settings.upstream_reconnect_max_retries.unwrap_or(10) {
             tokio::time::sleep(parse_duration(
                 &settings
@@ -29,16 +46,17 @@ impl ListenUpstream for UpstreamTarget {
             .await;
             tracing::info!("reconnecting upstream");
             retry_attempt += 1;
-            self.listen(&downstream_tx, retry_attempt).await?;
+            self.listen(client_tx, target_rx, retry_attempt).await?;
         }
-        //else {
-        //    retry_attempt = 0;
-        //    self.listen(&downstream_tx, retry_attempt).await?;
-        //}
         Ok(())
     }
 
-    async fn listen(&self, downstream_tx: &Sender<Vec<u8>>, retry_attempt: u32) -> Result<()> {
+    async fn listen(
+        &self,
+        client_tx: SenderCh,
+        mut target_rx: ReceiverCh,
+        retry_attempt: u32,
+    ) -> Result<()> {
         if let Err(e) = async {
             match TcpStream::connect(&format!("{}:{}", &self.host, &self.port)).await {
                 Ok(mut stream) => {
@@ -54,7 +72,7 @@ impl ListenUpstream for UpstreamTarget {
                                         return Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
                                     },
                                     Ok(n) => {
-                                        if let Err(e) = downstream_tx.send(buffer[..n].to_vec()){
+                                        if let Err(e) = client_tx.send(buffer[..n].to_vec()).await{
                                             tracing::error!("error sending msg: {}", e.to_string());
                                             //break;
                                             return Err::<(), ProxyError>(ProxyError::UpstreamReaderClosed)
@@ -67,8 +85,7 @@ impl ListenUpstream for UpstreamTarget {
                             }
                         } => {},
                         _ = async {
-                            let mut rx = self.tx.subscribe();
-                            while let Ok(msg) = rx.recv().await{
+                            while let Some(msg) = target_rx.recv().await{
                                 send.write_all(&msg).await?;
                             }
                             Err::<(), ProxyError>(ProxyError::UpstreamConnectionClosed)
@@ -85,7 +102,7 @@ impl ListenUpstream for UpstreamTarget {
         .await
         {
             tracing::error!("{:?}", &e);
-            self.retry(downstream_tx, retry_attempt).await?;
+            self.retry(client_tx, target_rx, retry_attempt).await?;
         };
         Ok(())
     }
