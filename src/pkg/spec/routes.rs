@@ -1,6 +1,6 @@
 use matchit::Router;
 use serde::Deserialize;
-use tokio::sync::broadcast::{self, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
@@ -28,16 +28,6 @@ pub struct Route {
     pub targets: Vec<UpstreamTarget>,
 }
 
-#[derive(Clone)]
-pub struct Connection{
-    pub client_tx: Sender<Vec<u8>>,
-    pub target_tx: Sender<Vec<u8>>
-}
+pub type SenderCh = Sender<Vec<u8>>;
+pub type ReceiverCh = Receiver<Vec<u8>>;
 
-impl Connection{
-    pub fn new() -> Self{
-        let (client_tx, _) = broadcast::channel::<Vec<u8>>(1);
-        let (target_tx, _) = broadcast::channel::<Vec<u8>>(1);
-        Self{client_tx, target_tx}
-    }
-}

@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 
 pub type Result<T> = core::result::Result<T, ProxyError>;
 
@@ -32,5 +32,5 @@ pub enum ProxyError {
     #[error("invalid time format error")]
     DurationError(#[from] humantime::DurationError),
     #[error("error writing to channel")]
-    ChannelWriteError(#[from] broadcast::error::SendError<Vec<u8>>),
+    ChannelWriteError(#[from] mpsc::error::SendError<Vec<u8>>),
 }

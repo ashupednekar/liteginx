@@ -2,7 +2,7 @@ use crate::{
     pkg::{
         conf::settings,
         server::{helpers::{extract_path, http_404_response, match_prefix, rewrite_path}, upstream::ListenUpstream},
-        spec::routes::{Connection, Endpoint, Route, UpstreamTarget},
+        spec::routes::{Endpoint, ReceiverCh, Route, SenderCh},
     },
     prelude::{ProxyError, Result},
 };
@@ -13,6 +13,7 @@ use rand::seq::IndexedRandom;
 use tokio::{
     io::{split, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
+    sync::mpsc,
     task::JoinSet,
 };
 
@@ -20,19 +21,19 @@ use tokio::{
 pub trait ListenDownstream<'a> {
     async fn serve(&self) -> Result<()>;
     async fn retry(&self) -> Result<()>;
-    async fn spawn_upstream(&self, conn: &'a Connection) -> Result<JoinSet<Result<()>>>;
+    async fn spawn_upstream(&self, client_tx: SenderCh, target_tx: ReceiverCh) -> Result<JoinSet<Result<()>>>;
 }
 
 #[async_trait]
 impl<'a> ListenDownstream<'a> for Route {
     async fn spawn_upstream(&self, 
-        conn: &'a Connection,
+        client_tx: SenderCh,
+        target_rx: ReceiverCh
     ) -> Result<JoinSet<Result<()>>> {
         let mut set = JoinSet::new();
         let target = self.targets.choose(&mut rand::rng()).ok_or(ProxyError::DownStreamServerEmptyTargets)?;
-        let conn = conn.clone();
         let target = target.clone();
-        set.spawn(async move { target.listen(&conn, 0).await });
+        set.spawn(async move { target.listen(client_tx, target_rx, 0).await });
         Ok(set) 
     }
 
@@ -55,10 +56,11 @@ impl<'a> ListenDownstream<'a> for Route {
             loop {
                 let (mut stream, _) = listener.accept().await?;
                 let endpoints = self.endpoints.clone();
-                let conn = Connection::new();
-                let mut set = self.spawn_upstream(&conn).await?;
+                let (client_tx, client_rx) = mpsc::channel::<Vec<u8>>(1);
+                let (target_tx, target_rx) = mpsc::channel::<Vec<u8>>(1);
+                let mut set = self.spawn_upstream(client_tx.clone(), target_rx).await?;
                 set.spawn(async move {
-                    handle(endpoints, &mut stream, &conn).await 
+                    handle(endpoints, &mut stream, target_tx, client_tx, client_rx).await 
                 });
                 tokio::spawn(async move{
                     set.join_all().await;
@@ -79,7 +81,9 @@ impl<'a> ListenDownstream<'a> for Route {
 async fn handle<'a>(
     endpoints: Option<Router<Endpoint>>,
     mut stream: &'a mut TcpStream,
-    conn: &'a Connection
+    target_tx: SenderCh,
+    client_tx: SenderCh,
+    mut client_rx: ReceiverCh
 ) -> Result<()> {
     let mut buffer = vec![1; 1024];
     tracing::debug!("handling connection...");
@@ -101,15 +105,15 @@ async fn handle<'a>(
                                 tracing::info!("rewriting path: {:?} to {:?}", &rewrite_from, &rewrite);
                                 body = rewrite_path(&body, rewrite_from.into(), rewrite.as_str().into());
                             }
-                            conn.target_tx.send(body)?;
+                            target_tx.send(body).await?;
                         },
                         None => {
                             tracing::warn!("path {} not found", &path);
-                            conn.client_tx.send(http_404_response()?.into())?;
+                            client_tx.send(http_404_response()?.into()).await?;
                         }
                     }
                 }else{
-                    conn.target_tx.send(body)?;
+                    target_tx.send(body).await?;
                 }
                 tracing::debug!("received downstream message from client, sent to upstream target");
             }
@@ -118,8 +122,7 @@ async fn handle<'a>(
             tracing::debug!("downstream reader closed: {:?}", &r);
         },
         _ = async{
-            let mut rx = conn.client_tx.subscribe();
-            while let Ok(msg) = rx.recv().await{
+            while let Some(msg) = client_rx.recv().await{
                 writer.write_all(&msg).await?;
                 tracing::debug!("received upstream message from target, sent downstream");
             }
