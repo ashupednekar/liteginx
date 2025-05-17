@@ -1,4 +1,6 @@
 # A proxy implentation from first principles
+![image](https://github.com/user-attachments/assets/5bfd0ef0-fec9-4fb5-8cd3-4fe6e2f5e531)
+
 
 Refer this [blog](https://ashupednekar.github.io/posts/write-your-own-reverse-proxy/) for further details
 
